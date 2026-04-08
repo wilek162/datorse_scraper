@@ -1,0 +1,83 @@
+// config/sources.json
+// Controls scheduling frequency and proxy tier for each data source.
+[
+  {
+    "id": "amazon_se",
+    "type": "api",
+    "module": "feeds/amazon.js",
+    "enabled": true,
+    "schedule": "0 */4 * * *",
+    "comment": "Amazon PA API — every 4 hours"
+  },
+  {
+    "id": "awin",
+    "type": "feed",
+    "module": "feeds/awin.js",
+    "enabled": true,
+    "schedule": "30 2 * * *",
+    "comment": "Awin product feed — daily at 02:30"
+  },
+  {
+    "id": "adtraction",
+    "type": "feed",
+    "module": "feeds/adtraction.js",
+    "enabled": true,
+    "schedule": "0 3 * * *",
+    "comment": "Adtraction CSV feed — daily at 03:00"
+  },
+  {
+    "id": "komplett",
+    "type": "scraper",
+    "module": "scrapers/komplett.js",
+    "enabled": true,
+    "schedule": "10 */4 * * *",
+    "proxyTier": "asp",
+    "renderJs": true,
+    "rateLimit": { "reqPerMin": 10 },
+    "comment": "Komplett.se — Cloudflare protected; every 4 hours"
+  },
+  {
+    "id": "inet",
+    "type": "scraper",
+    "module": "scrapers/inet.js",
+    "enabled": true,
+    "schedule": "20 */4 * * *",
+    "proxyTier": "standard",
+    "renderJs": true,
+    "rateLimit": { "reqPerMin": 12 },
+    "comment": "Inet.se — every 4 hours"
+  },
+  {
+    "id": "elgiganten",
+    "type": "scraper",
+    "module": "scrapers/elgiganten.js",
+    "enabled": true,
+    "schedule": "40 */6 * * *",
+    "proxyTier": "asp",
+    "renderJs": true,
+    "rateLimit": { "reqPerMin": 8 },
+    "comment": "Elgiganten.se — Akamai; every 6 hours"
+  },
+  {
+    "id": "webhallen",
+    "type": "scraper",
+    "module": "scrapers/webhallen.js",
+    "enabled": true,
+    "schedule": "0 */6 * * *",
+    "proxyTier": "standard",
+    "renderJs": false,
+    "rateLimit": { "reqPerMin": 15 },
+    "comment": "Webhallen.se — every 6 hours"
+  },
+  {
+    "id": "prisjakt",
+    "type": "scraper",
+    "module": "scrapers/prisjakt.js",
+    "enabled": true,
+    "schedule": "0 4 * * *",
+    "proxyTier": "standard",
+    "renderJs": false,
+    "rateLimit": { "reqPerMin": 10 },
+    "comment": "Prisjakt.nu — daily price history aggregation"
+  }
+]
