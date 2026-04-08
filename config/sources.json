@@ -1,13 +1,14 @@
 // config/sources.json
 // Controls scheduling frequency and proxy tier for each data source.
+// Set "enabled": false on expensive sources (komplett, elgiganten) during dev.
 [
   {
     "id": "amazon_se",
     "type": "api",
     "module": "feeds/amazon.js",
-    "enabled": true,
+    "enabled": false,
     "schedule": "0 */4 * * *",
-    "comment": "Amazon PA API — every 4 hours"
+    "comment": "Amazon PA API — disabled until PA-API credentials are obtained"
   },
   {
     "id": "awin",
@@ -26,39 +27,6 @@
     "comment": "Adtraction CSV feed — daily at 03:00"
   },
   {
-    "id": "komplett",
-    "type": "scraper",
-    "module": "scrapers/komplett.js",
-    "enabled": true,
-    "schedule": "10 */4 * * *",
-    "proxyTier": "asp",
-    "renderJs": true,
-    "rateLimit": { "reqPerMin": 10 },
-    "comment": "Komplett.se — Cloudflare protected; every 4 hours"
-  },
-  {
-    "id": "inet",
-    "type": "scraper",
-    "module": "scrapers/inet.js",
-    "enabled": true,
-    "schedule": "20 */4 * * *",
-    "proxyTier": "standard",
-    "renderJs": true,
-    "rateLimit": { "reqPerMin": 12 },
-    "comment": "Inet.se — every 4 hours"
-  },
-  {
-    "id": "elgiganten",
-    "type": "scraper",
-    "module": "scrapers/elgiganten.js",
-    "enabled": true,
-    "schedule": "40 */6 * * *",
-    "proxyTier": "asp",
-    "renderJs": true,
-    "rateLimit": { "reqPerMin": 8 },
-    "comment": "Elgiganten.se — Akamai; every 6 hours"
-  },
-  {
     "id": "webhallen",
     "type": "scraper",
     "module": "scrapers/webhallen.js",
@@ -66,8 +34,17 @@
     "schedule": "0 */6 * * *",
     "proxyTier": "standard",
     "renderJs": false,
-    "rateLimit": { "reqPerMin": 15 },
-    "comment": "Webhallen.se — every 6 hours"
+    "rateLimit": {
+      "reqPerMin": 15
+    },
+    "pageLimit": 3,
+    "startUrls": [
+      "https://www.webhallen.com/se/category/1394-laptops",
+      "https://www.webhallen.com/se/category/5-cpu",
+      "https://www.webhallen.com/se/category/6-grafikkort",
+      "https://www.webhallen.com/se/category/8-grafikkort-gpu"
+    ],
+    "comment": "Webhallen.se — every 6 hours; plain HTML, no JS render needed"
   },
   {
     "id": "prisjakt",
@@ -77,7 +54,76 @@
     "schedule": "0 4 * * *",
     "proxyTier": "standard",
     "renderJs": false,
-    "rateLimit": { "reqPerMin": 10 },
-    "comment": "Prisjakt.nu — daily price history aggregation"
+    "rateLimit": {
+      "reqPerMin": 10
+    },
+    "pageLimit": 2,
+    "startUrls": [
+      "https://www.prisjakt.nu/kategori/laptopsdatorer",
+      "https://www.prisjakt.nu/kategori/processorer",
+      "https://www.prisjakt.nu/kategori/grafikkort"
+    ],
+    "comment": "Prisjakt.nu — daily; supplementary price + EAN data"
+  },
+  {
+    "id": "inet",
+    "type": "scraper",
+    "module": "scrapers/inet.js",
+    "enabled": true,
+    "schedule": "20 */4 * * *",
+    "proxyTier": "standard",
+    "renderJs": true,
+    "waitSelector": ".product-list-item",
+    "customWait": 1500,
+    "rateLimit": {
+      "reqPerMin": 12
+    },
+    "pageLimit": 3,
+    "startUrls": [
+      "https://www.inet.se/kategori/67/laptop",
+      "https://www.inet.se/kategori/159/processorer",
+      "https://www.inet.se/kategori/138/grafikkort"
+    ],
+    "comment": "Inet.se — React SPA; requires JS render"
+  },
+  {
+    "id": "komplett",
+    "type": "scraper",
+    "module": "scrapers/komplett.js",
+    "enabled": false,
+    "schedule": "10 */4 * * *",
+    "proxyTier": "asp",
+    "renderJs": true,
+    "useZyteAiExtraction": true,
+    "rateLimit": {
+      "reqPerMin": 10
+    },
+    "pageLimit": 2,
+    "startUrls": [
+      "https://www.komplett.se/category/11177/laptops",
+      "https://www.komplett.se/category/11179/grafikkort",
+      "https://www.komplett.se/category/11180/processorer"
+    ],
+    "comment": "Komplett.se — Cloudflare; disabled until Zyte budget confirmed"
+  },
+  {
+    "id": "elgiganten",
+    "type": "scraper",
+    "module": "scrapers/elgiganten.js",
+    "enabled": false,
+    "schedule": "40 */6 * * *",
+    "proxyTier": "asp",
+    "renderJs": true,
+    "useZyteAiExtraction": true,
+    "rateLimit": {
+      "reqPerMin": 8
+    },
+    "pageLimit": 2,
+    "startUrls": [
+      "https://www.elgiganten.se/category/datorer-tillbehor/laptops/LAPTOPS",
+      "https://www.elgiganten.se/category/datorer-tillbehor/datorkomponenter/processorer/CPU",
+      "https://www.elgiganten.se/category/datorer-tillbehor/datorkomponenter/grafikkort/GRAFIKKORT"
+    ],
+    "comment": "Elgiganten.se — Akamai; disabled until Zyte budget confirmed"
   }
 ]

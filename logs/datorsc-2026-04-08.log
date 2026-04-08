@@ -1,0 +1,20 @@
+{"level":"info","message":"[migrations] Applying: 001_initial_schema.sql","timestamp":"2026-04-08 16:16:59"}
+{"level":"info","message":"[migrations] Done: 001_initial_schema.sql","timestamp":"2026-04-08 16:17:00"}
+{"level":"info","message":"[migrations] All migrations applied","timestamp":"2026-04-08 16:17:00"}
+{"level":"info","message":"Manually running source: webhallen","timestamp":"2026-04-08 16:17:13"}
+{"db":"datorsc","host":"127.0.0.1","level":"info","message":"MySQL connection pool created","timestamp":"2026-04-08 16:17:13"}
+{"level":"info","message":"Starting run","sourceId":"webhallen","timestamp":"2026-04-08 16:17:13"}
+{"level":"info","message":"Fetched 0 raw records","sourceId":"webhallen","timestamp":"2026-04-08 16:17:13"}
+{"level":"info","message":"Run complete","recordsFound":0,"recordsUpserted":0,"recordsValid":0,"sourceId":"webhallen","status":"ok","timestamp":"2026-04-08 16:17:13"}
+{"level":"info","message":"Manual run complete","timestamp":"2026-04-08 16:17:13"}
+{"level":"info","message":"datorsc-scraper scheduler starting","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Loaded 8/8 enabled sources","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled amazon_se → 0 */4 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled awin → 30 2 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled adtraction → 0 3 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled komplett → 10 */4 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled inet → 20 */4 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled elgiganten → 40 */6 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled webhallen → 0 */6 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduled prisjakt → 0 4 * * *","timestamp":"2026-04-08 16:17:24"}
+{"level":"info","message":"Scheduler running. Waiting for jobs...","timestamp":"2026-04-08 16:17:24"}

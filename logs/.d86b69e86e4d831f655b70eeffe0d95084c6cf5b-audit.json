@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "C:\\Users\\Greg\\datorse_scraper\\logs\\.d86b69e86e4d831f655b70eeffe0d95084c6cf5b-audit.json",
+    "files": [
+        {
+            "date": 1775657819518,
+            "name": "C:\\Users\\Greg\\datorse_scraper\\logs\\datorsc-2026-04-08.log",
+            "hash": "76da37c2af14772b127f368b131a9844b97c467a6b474ac81f5fdf28c86d3703"
+        }
+    ],
+    "hashType": "sha256"
+}
