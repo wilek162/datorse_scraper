@@ -11,6 +11,23 @@
 module.exports = {
   apps: [
     {
+      name: "datorsc-admin",
+      script: "admin/server.js",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "256M",
+      error_file: "logs/admin-error.log",
+      out_file: "logs/admin-out.log",
+      merge_logs: true,
+      env: {
+        NODE_ENV: "development",
+      },
+      env_production: {
+        NODE_ENV: "production",
+      },
+    },
+    {
       name: "datorsc-scraper",
       script: "lib/scheduler.js",
       instances: 1,

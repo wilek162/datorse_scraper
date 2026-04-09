@@ -5,6 +5,8 @@
 -- Setting via_source = retailer ensures the protection guard fires correctly.
 
 UPDATE dsc_prices
-SET via_source = retailer
-WHERE via_source IS NULL
-  AND retailer != 'prisjakt';
+SET
+    via_source = retailer
+WHERE
+    via_source IS NULL
+    AND retailer != 'prisjakt';
