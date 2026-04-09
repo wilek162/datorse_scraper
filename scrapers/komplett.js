@@ -4,6 +4,12 @@ const pLimit = require("p-limit");
 const logger = require("../lib/logger");
 const proxy = require("../lib/proxy");
 const { parseEan, parsePrice } = require("../lib/parse");
+const {
+  getItemLimit,
+  getPageLimit,
+  isItemLimitReached,
+  takeRemaining,
+} = require("../lib/source-controls");
 
 // Komplett.se is Cloudflare-protected.
 // Strategy: Zyte AI extraction — no CSS selectors needed.
@@ -15,14 +21,6 @@ const { parseEan, parsePrice } = require("../lib/parse");
 
 const RETAILER = "komplett";
 const MIN_AI_PROBABILITY = 0.5;
-
-function getDefaultSeedUrls() {
-  return [
-    "https://www.komplett.se/category/11177/laptops",
-    "https://www.komplett.se/category/11179/grafikkort",
-    "https://www.komplett.se/category/11180/processorer",
-  ];
-}
 
 // ─── Map Zyte Product AI response → ProductRecord ────────────────────────────
 /**
@@ -88,16 +86,27 @@ function zyteProductToRecord(zyteProduct, productUrl) {
 async function run(sourceConfig) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(6); // Zyte concurrency — stay within reqPerMin
-  const pageLimit = sourceConfig.pageLimit ?? 5;
+  const pageLimit = getPageLimit(sourceConfig, 5);
+  const itemLimit = getItemLimit(sourceConfig);
   const allRecords = [];
 
-  const seedUrls = sourceConfig.startUrls ?? getDefaultSeedUrls();
+  const seedUrls = Array.isArray(sourceConfig.startUrls)
+    ? sourceConfig.startUrls.filter(Boolean)
+    : [];
+  if (seedUrls.length === 0) {
+    log.warn("No startUrls configured in sources.json; skipping source");
+    return [];
+  }
 
   for (const seedUrl of seedUrls) {
     let pageUrl = seedUrl;
     let pageCount = 0;
 
-    while (pageUrl && pageCount < pageLimit) {
+    while (
+      pageUrl &&
+      pageCount < pageLimit &&
+      !isItemLimitReached(allRecords.length, itemLimit)
+    ) {
       pageCount++;
       log.info("Fetching Komplett category", { url: pageUrl, page: pageCount });
 
@@ -113,9 +122,11 @@ async function run(sourceConfig) {
         break;
       }
 
-      const productUrls = (nav?.items || [])
-        .map((item) => item.url)
-        .filter(Boolean);
+      const productUrls = takeRemaining(
+        (nav?.items || []).map((item) => item.url).filter(Boolean),
+        allRecords.length,
+        itemLimit,
+      );
       log.info("Category page", { url: pageUrl, products: productUrls.length });
 
       if (productUrls.length === 0) break;

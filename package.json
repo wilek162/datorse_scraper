@@ -10,9 +10,18 @@
     "start": "node lib/scheduler.js",
     "dev": "node --watch lib/scheduler.js",
     "migrate": "node migrations/run.js",
+    "db:add-partitions": "node scripts/add-partition.js",
+    "db:smoke": "node tests/db-smoke.js",
     "test": "jest --runInBand --passWithNoTests",
+    "test:integration": "jest --runInBand tests/db-integration.test.js tests/prisjakt-e2e.test.js",
+    "test:e2e": "jest --runInBand tests/prisjakt-e2e.test.js",
+    "test:full": "npm run lint && npm test",
     "test:watch": "jest --watch",
     "run:source": "node lib/run-source.js",
+    "run:prisjakt": "node lib/run-source.js prisjakt",
+    "run:prisjakt:smoke": "node lib/run-source.js prisjakt --pageLimit 1 --itemLimit 5",
+    "run:webhallen": "node lib/run-source.js webhallen",
+    "run:webhallen:smoke": "node lib/run-source.js webhallen --pageLimit 1 --itemLimit 5",
     "lint": "eslint \"{lib,feeds,scrapers,migrations,tests}/**/*.js\""
   },
   "dependencies": {

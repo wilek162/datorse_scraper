@@ -4,6 +4,7 @@ require("dotenv").config();
 const axios = require("axios");
 const { parse } = require("csv-parse/sync");
 const logger = require("../lib/logger");
+const { getItemLimit, takeRemaining } = require("../lib/source-controls");
 
 // ─── Adtraction feed configuration ───────────────────────────────────────────
 // Feed URL: GET https://api.adtraction.com/v2/partner/feeds/{channelId}?apiKey={key}&format=csv
@@ -154,6 +155,7 @@ function retailerFromUrl(feedUrl) {
 async function run(sourceConfig) {
   const log = logger.forSource(sourceConfig.id);
   const feedUrls = getFeedUrls();
+  const itemLimit = getItemLimit(sourceConfig);
 
   if (feedUrls.length === 0) {
     log.warn(
@@ -179,9 +181,13 @@ async function run(sourceConfig) {
         relax_column_count: true,
       });
 
-      const records = rows
-        .map((row) => mapAdtractionRow(row, retailer))
-        .filter((r) => r !== null && /^\d{8,14}$/.test(r.ean || ""));
+      const records = takeRemaining(
+        rows
+          .map((row) => mapAdtractionRow(row, retailer))
+          .filter((r) => r !== null && /^\d{8,14}$/.test(r.ean || "")),
+        allRecords.length,
+        itemLimit,
+      );
 
       log.info("Adtraction feed parsed", {
         retailer,
@@ -189,6 +195,7 @@ async function run(sourceConfig) {
         withEan: records.length,
       });
       allRecords.push(...records);
+      if (itemLimit !== null && allRecords.length >= itemLimit) break;
     } catch (err) {
       log.error("Failed to download/parse Adtraction feed", {
         feedUrl: feedUrl.slice(0, 80),

@@ -4,6 +4,7 @@ const {
   validateRecords,
   isSuspiciousPriceChange,
   ProductRecordSchema,
+  UnresolvedProductRecordSchema,
 } = require("../lib/validate");
 
 // ─── Valid record fixture ─────────────────────────────────────────────────────
@@ -102,17 +103,35 @@ describe("ProductRecordSchema", () => {
   });
 });
 
+describe("UnresolvedProductRecordSchema", () => {
+  test("accepts a record with missing ean when core fields are valid", () => {
+    const result = UnresolvedProductRecordSchema.safeParse(
+      makeRecord({ ean: null, external_id: "12345" }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects syntactically bad non-empty ean", () => {
+    const result = UnresolvedProductRecordSchema.safeParse(
+      makeRecord({ ean: "SKU:12345" }),
+    );
+    expect(result.success).toBe(false);
+  });
+});
+
 // ─── validateRecords ──────────────────────────────────────────────────────────
 describe("validateRecords()", () => {
   test("returns valid and invalid arrays", () => {
     const records = [
       makeRecord(),
+      makeRecord({ ean: null, external_id: "123" }),
       makeRecord({ ean: "bad" }),
       makeRecord({ price_sek: 500 }),
     ];
-    const { valid, invalid } = validateRecords(records, "test");
+    const { valid, unresolved, invalid } = validateRecords(records, "test");
     expect(valid).toHaveLength(2);
     expect(invalid).toHaveLength(1);
+    expect(unresolved).toHaveLength(1);
   });
 
   test("valid records pass through unchanged", () => {
@@ -123,9 +142,20 @@ describe("validateRecords()", () => {
   });
 
   test("returns empty arrays for empty input", () => {
-    const { valid, invalid } = validateRecords([], "test");
+    const { valid, unresolved, invalid } = validateRecords([], "test");
     expect(valid).toHaveLength(0);
+    expect(unresolved).toHaveLength(0);
     expect(invalid).toHaveLength(0);
+  });
+
+  test("classifies missing ean as unresolved instead of invalid", () => {
+    const { unresolved, invalid } = validateRecords(
+      [makeRecord({ ean: null, external_id: "prisjakt-123" })],
+      "test",
+    );
+    expect(unresolved).toHaveLength(1);
+    expect(invalid).toHaveLength(0);
+    expect(unresolved[0].external_id).toBe("prisjakt-123");
   });
 
   test("invalid record includes error details", () => {

@@ -39,10 +39,8 @@
     },
     "pageLimit": 3,
     "startUrls": [
-      "https://www.webhallen.com/se/category/1394-laptops",
-      "https://www.webhallen.com/se/category/5-cpu",
-      "https://www.webhallen.com/se/category/6-grafikkort",
-      "https://www.webhallen.com/se/category/8-grafikkort-gpu"
+      "https://www.webhallen.com/se/category/3980-Stationar-dator",
+      "https://www.webhallen.com/se/category/3965-Laptop-Barbar-dator"
     ],
     "comment": "Webhallen.se — every 6 hours; plain HTML, no JS render needed"
   },
@@ -53,15 +51,14 @@
     "enabled": true,
     "schedule": "0 4 * * *",
     "proxyTier": "standard",
-    "renderJs": false,
+    "renderJs": true,
     "rateLimit": {
       "reqPerMin": 10
     },
     "pageLimit": 2,
     "startUrls": [
-      "https://www.prisjakt.nu/kategori/laptopsdatorer",
-      "https://www.prisjakt.nu/kategori/processorer",
-      "https://www.prisjakt.nu/kategori/grafikkort"
+      "https://www.prisjakt.nu/search?category=352",
+      "https://www.prisjakt.nu/search?category=353"
     ],
     "comment": "Prisjakt.nu — daily; supplementary price + EAN data"
   },
@@ -80,9 +77,7 @@
     },
     "pageLimit": 3,
     "startUrls": [
-      "https://www.inet.se/kategori/67/laptop",
-      "https://www.inet.se/kategori/159/processorer",
-      "https://www.inet.se/kategori/138/grafikkort"
+      "https://www.inet.se/kategori/67/laptop"
     ],
     "comment": "Inet.se — React SPA; requires JS render"
   },
@@ -100,9 +95,7 @@
     },
     "pageLimit": 2,
     "startUrls": [
-      "https://www.komplett.se/category/11177/laptops",
-      "https://www.komplett.se/category/11179/grafikkort",
-      "https://www.komplett.se/category/11180/processorer"
+      "https://www.komplett.se/category/11177/laptops"
     ],
     "comment": "Komplett.se — Cloudflare; disabled until Zyte budget confirmed"
   },
@@ -120,10 +113,9 @@
     },
     "pageLimit": 2,
     "startUrls": [
-      "https://www.elgiganten.se/category/datorer-tillbehor/laptops/LAPTOPS",
-      "https://www.elgiganten.se/category/datorer-tillbehor/datorkomponenter/processorer/CPU",
-      "https://www.elgiganten.se/category/datorer-tillbehor/datorkomponenter/grafikkort/GRAFIKKORT"
+      "https://www.elgiganten.se/datorer-kontor/datorer/laptop/windows-laptop",
+      "https://www.elgiganten.se/gaming/gaming-pc/gaming-laptop"
     ],
-    "comment": "Elgiganten.se — Akamai; disabled until Zyte budget confirmed"
+    "comment": "Elgiganten.se — Akamai; disabled until Zyte budget confirmed. Category URLs updated 2026-04."
   }
 ]

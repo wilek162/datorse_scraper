@@ -12,18 +12,15 @@ const {
   parseNextData,
   findArrayInObject,
 } = require("../lib/parse");
+const {
+  getItemLimit,
+  getPageLimit,
+  isItemLimitReached,
+  takeRemaining,
+} = require("../lib/source-controls");
 
 const RETAILER = "webhallen";
 const BASE_URL = "https://www.webhallen.com";
-
-// ─── Default seed URLs (overridden by sources.json startUrls) ────────────────
-function getDefaultSeedUrls() {
-  return [
-    "https://www.webhallen.com/se/category/1394-laptops",
-    "https://www.webhallen.com/se/category/5-cpu",
-    "https://www.webhallen.com/se/category/6-grafikkort",
-  ];
-}
 
 // ─── Scrape a single product page for EAN ────────────────────────────────────
 async function fetchProductEan(productUrl, sourceConfig, log) {
@@ -286,16 +283,27 @@ function extractNextPageUrl($, currentUrl) {
 async function run(sourceConfig) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(4); // concurrent product page enrichment
-  const pageLimit = sourceConfig.pageLimit ?? 5;
+  const pageLimit = getPageLimit(sourceConfig, 5);
+  const itemLimit = getItemLimit(sourceConfig);
   const allRecords = [];
 
-  const seedUrls = sourceConfig.startUrls ?? getDefaultSeedUrls();
+  const seedUrls = Array.isArray(sourceConfig.startUrls)
+    ? sourceConfig.startUrls.filter(Boolean)
+    : [];
+  if (seedUrls.length === 0) {
+    log.warn("No startUrls configured in sources.json; skipping source");
+    return [];
+  }
 
   for (const seedUrl of seedUrls) {
     let pageUrl = seedUrl;
     let pageCount = 0;
 
-    while (pageUrl && pageCount < pageLimit) {
+    while (
+      pageUrl &&
+      pageCount < pageLimit &&
+      !isItemLimitReached(allRecords.length, itemLimit)
+    ) {
       pageCount++;
       log.info("Scraping listing page", { url: pageUrl, page: pageCount });
 
@@ -317,9 +325,11 @@ async function run(sourceConfig) {
       const nextData = parseNextData($);
       if (nextData) {
         const rawProducts = extractFromNextData(nextData);
-        products = rawProducts
-          .map((p) => mapNextDataProduct(p))
-          .filter(Boolean);
+        products = takeRemaining(
+          rawProducts.map((p) => mapNextDataProduct(p)).filter(Boolean),
+          allRecords.length,
+          itemLimit,
+        );
         if (products.length > 0)
           log.debug("Extracted from __NEXT_DATA__", { count: products.length });
       }
@@ -374,7 +384,11 @@ async function run(sourceConfig) {
 
       // ── Strategy 3: CSS selectors ──
       if (products.length === 0) {
-        products = parseListingViaSelectors($, log);
+        products = takeRemaining(
+          parseListingViaSelectors($, log),
+          allRecords.length,
+          itemLimit,
+        );
         log.debug("Extracted via CSS selectors", { count: products.length });
       }
 

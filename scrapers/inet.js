@@ -12,6 +12,12 @@ const {
   parseNextData,
   findArrayInObject,
 } = require("../lib/parse");
+const {
+  getItemLimit,
+  getPageLimit,
+  isItemLimitReached,
+  takeRemaining,
+} = require("../lib/source-controls");
 
 // inet.se is a Swedish computer retailer.
 // Site is a React SPA — requires renderJs: true via Scrape.do.
@@ -19,14 +25,6 @@ const {
 
 const RETAILER = "inet";
 const BASE_URL = "https://www.inet.se";
-
-function getDefaultSeedUrls() {
-  return [
-    "https://www.inet.se/kategori/67/laptop",
-    "https://www.inet.se/kategori/159/processorer",
-    "https://www.inet.se/kategori/138/grafikkort",
-  ];
-}
 
 // ─── Extract products from __NEXT_DATA__ ─────────────────────────────────────
 function extractFromNextData(nextData) {
@@ -276,16 +274,27 @@ function extractNextPageUrl($, currentUrl) {
 async function run(sourceConfig) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(3);
-  const pageLimit = sourceConfig.pageLimit ?? 5;
+  const pageLimit = getPageLimit(sourceConfig, 5);
+  const itemLimit = getItemLimit(sourceConfig);
   const allRecords = [];
 
-  const seedUrls = sourceConfig.startUrls ?? getDefaultSeedUrls();
+  const seedUrls = Array.isArray(sourceConfig.startUrls)
+    ? sourceConfig.startUrls.filter(Boolean)
+    : [];
+  if (seedUrls.length === 0) {
+    log.warn("No startUrls configured in sources.json; skipping source");
+    return [];
+  }
 
   for (const seedUrl of seedUrls) {
     let pageUrl = seedUrl;
     let pageCount = 0;
 
-    while (pageUrl && pageCount < pageLimit) {
+    while (
+      pageUrl &&
+      pageCount < pageLimit &&
+      !isItemLimitReached(allRecords.length, itemLimit)
+    ) {
       pageCount++;
       log.info("Scraping inet listing", { url: pageUrl, page: pageCount });
 
@@ -307,7 +316,11 @@ async function run(sourceConfig) {
       const nextData = parseNextData($);
       if (nextData) {
         const raw = extractFromNextData(nextData);
-        products = raw.map(mapNextDataProduct).filter(Boolean);
+        products = takeRemaining(
+          raw.map(mapNextDataProduct).filter(Boolean),
+          allRecords.length,
+          itemLimit,
+        );
         if (products.length > 0)
           log.debug("Got products from __NEXT_DATA__", {
             count: products.length,
@@ -353,7 +366,7 @@ async function run(sourceConfig) {
               })
               .filter(Boolean);
             if (mapped.length > 0) {
-              products = mapped;
+              products = takeRemaining(mapped, allRecords.length, itemLimit);
               break;
             }
           }
@@ -362,7 +375,11 @@ async function run(sourceConfig) {
 
       // ── Strategy 3: CSS selectors ──
       if (products.length === 0) {
-        products = parseListingViaSelectors($, log);
+        products = takeRemaining(
+          parseListingViaSelectors($, log),
+          allRecords.length,
+          itemLimit,
+        );
       }
 
       // Enrich EAN

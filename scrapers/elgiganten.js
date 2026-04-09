@@ -4,27 +4,96 @@ const pLimit = require("p-limit");
 const logger = require("../lib/logger");
 const proxy = require("../lib/proxy");
 const { zyteProductToRecord: _zyteProductToRecord } = require("./komplett");
+const { load } = require("../lib/parse");
+const {
+  getItemLimit,
+  getPageLimit,
+  isItemLimitReached,
+  takeRemaining,
+} = require("../lib/source-controls");
 
 // Elgiganten.se is Akamai-protected.
-// Identical strategy to komplett.js — Zyte AI extraction handles Akamai transparently
-// via its residential IP pool.
+// Strategy: Zyte browserHtml for category pages (productNavigation AI extraction
+// returns 0 items on this site), then Zyte product AI extraction per product URL.
 //
-// ipType: "residential" is set per the sourceConfig if needed; Zyte auto-selects by default.
+// Category URL format (updated 2026-04):
+//   https://www.elgiganten.se/datorer-kontor/datorer/laptop/windows-laptop
+// Product URL format:
+//   https://www.elgiganten.se/product/{path}/{name}/{article_id}
 
 const RETAILER = "elgiganten";
+const BASE_URL = "https://www.elgiganten.se";
 
-function getDefaultSeedUrls() {
-  return [
-    "https://www.elgiganten.se/category/datorer-tillbehor/laptops/LAPTOPS",
-    "https://www.elgiganten.se/category/datorer-tillbehor/datorkomponenter/processorer/CPU",
-    "https://www.elgiganten.se/category/datorer-tillbehor/datorkomponenter/grafikkort/GRAFIKKORT",
-  ];
+/**
+ * Extracts Elgiganten article ID from a product URL.
+ * Last numeric path segment is the article ID, e.g. /.../.../982110
+ */
+function extractArticleId(url, zyteProduct = {}) {
+  const fromZyte = zyteProduct.productId || zyteProduct.sku || null;
+  if (fromZyte) return String(fromZyte);
+
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    for (let i = segments.length - 1; i >= 0; i--) {
+      if (/^\d{4,}$/.test(segments[i])) return segments[i];
+    }
+    const last = segments[segments.length - 1];
+    if (last && last.length >= 4) return last;
+  } catch (_) {
+    // ignore malformed URL
+  }
+  return null;
 }
 
-// Reuse the Zyte mapper from komplett.js, override retailer field
+/**
+ * Extracts product URLs from a rendered category page HTML.
+ * Elgiganten product links: href="/product/{path}/{name}/{id}"
+ */
+function extractProductLinks($) {
+  const links = new Set();
+  $('a[href*="/product/"]').each((_, el) => {
+    const href = $( el).attr("href");
+    if (!href) return;
+    // Only accept product detail pages (exclude product comparison, etc.)
+    if (!href.includes("/product/")) return;
+    const full = href.startsWith("http") ? href : `${BASE_URL}${href}`;
+    links.add(full.split("?")[0]); // strip query string
+  });
+  return [...links];
+}
+
+/**
+ * Extracts the next-page URL from an Elgiganten category page.
+ * Pattern: ?page=N or /page-N suffix.
+ */
+function extractNextPageUrl($, currentUrl) {
+  // Strategy 1: rel="next" link
+  const relNext = $('a[rel="next"], link[rel="next"]').first();
+  if (relNext.length) {
+    const href = relNext.attr("href");
+    if (href) return href.startsWith("http") ? href : `${BASE_URL}${href}`;
+  }
+
+  // Strategy 2: page number in current URL → increment
+  const url = new URL(currentUrl);
+  const pathMatch = url.pathname.match(/\/page-(\d+)$/);
+  const current = pathMatch ? parseInt(pathMatch[1], 10) : 1;
+  const next = current + 1;
+  // Check if page-N link exists in DOM
+  const nextHref = $(`a[href*="page-${next}"]`).first().attr("href");
+  if (nextHref) {
+    return nextHref.startsWith("http") ? nextHref : `${BASE_URL}${nextHref}`;
+  }
+  return null;
+}
+
+// Wrap Zyte product mapper, override retailer + add external_id
 function zyteProductToRecord(zyteProduct, productUrl) {
   const record = _zyteProductToRecord(zyteProduct, productUrl);
-  if (record) record.retailer = RETAILER;
+  if (!record) return null;
+  record.retailer = RETAILER;
+  const extId = extractArticleId(productUrl, zyteProduct);
+  if (extId) record.external_id = extId;
   return record;
 }
 
@@ -33,41 +102,62 @@ function zyteProductToRecord(zyteProduct, productUrl) {
  */
 async function run(sourceConfig) {
   const log = logger.forSource(sourceConfig.id);
-  const limit = pLimit(5);
-  const pageLimit = sourceConfig.pageLimit ?? 5;
+  const limit = pLimit(3); // concurrent product fetches — keep Zyte load low
+  const pageLimit = getPageLimit(sourceConfig, 5);
+  const itemLimit = getItemLimit(sourceConfig);
   const allRecords = [];
 
-  const seedUrls = sourceConfig.startUrls ?? getDefaultSeedUrls();
+  const seedUrls = Array.isArray(sourceConfig.startUrls)
+    ? sourceConfig.startUrls.filter(Boolean)
+    : [];
+  if (seedUrls.length === 0) {
+    log.warn("No startUrls configured in sources.json; skipping source");
+    return [];
+  }
 
   for (const seedUrl of seedUrls) {
     let pageUrl = seedUrl;
     let pageCount = 0;
 
-    while (pageUrl && pageCount < pageLimit) {
+    while (
+      pageUrl &&
+      pageCount < pageLimit &&
+      !isItemLimitReached(allRecords.length, itemLimit)
+    ) {
       pageCount++;
       log.info("Fetching Elgiganten category", {
         url: pageUrl,
         page: pageCount,
       });
 
-      let nav;
+      let html;
       try {
-        nav = await proxy.fetchProductList(pageUrl, sourceConfig);
+        // Use Zyte browserHtml (proxyTier: asp, renderJs: true)
+        html = await proxy.fetch(pageUrl, sourceConfig);
       } catch (err) {
-        log.error("fetchProductList failed", {
+        log.error("Failed to fetch category page", {
           url: pageUrl,
           err: err.message,
         });
         break;
       }
 
-      const productUrls = (nav?.items || [])
-        .map((item) => item.url)
-        .filter(Boolean);
-      log.info("Category page", { url: pageUrl, products: productUrls.length });
+      const $ = load(html);
+      const allLinks = extractProductLinks($);
+      const productUrls = takeRemaining(allLinks, allRecords.length, itemLimit);
 
-      if (productUrls.length === 0) break;
+      log.info("Category page", {
+        url: pageUrl,
+        totalLinks: allLinks.length,
+        kept: productUrls.length,
+      });
 
+      if (productUrls.length === 0) {
+        log.warn("No product links found on category page", { url: pageUrl });
+        break;
+      }
+
+      // Zyte AI product extraction per item
       const records = await Promise.all(
         productUrls.map((pUrl) =>
           limit(async () => {
@@ -87,7 +177,7 @@ async function run(sourceConfig) {
       );
 
       allRecords.push(...records.filter(Boolean));
-      pageUrl = nav?.nextPage?.url || null;
+      pageUrl = extractNextPageUrl($, pageUrl);
     }
   }
 
@@ -96,3 +186,4 @@ async function run(sourceConfig) {
 }
 
 module.exports = { run };
+

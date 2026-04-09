@@ -102,6 +102,36 @@ describe("Zyte-backed scrapers", () => {
     expect(records[1].ean).toBe("2234567890123");
   });
 
+  test("komplett run respects itemLimit to cap token usage", async () => {
+    const proxyMock = {
+      fetchProductList: jest.fn().mockResolvedValue({
+        items: [
+          { url: "https://www.komplett.se/product/1" },
+          { url: "https://www.komplett.se/product/2" },
+        ],
+        nextPage: null,
+      }),
+      fetchProduct: jest.fn().mockResolvedValue(makeZyteProduct()),
+    };
+    const log = makeLogger();
+
+    jest.doMock("../lib/proxy", () => proxyMock);
+    jest.doMock("../lib/logger", () => ({ forSource: () => log }));
+
+    const { run } = require("../scrapers/komplett");
+    const records = await run({
+      id: "komplett",
+      pageLimit: 2,
+      itemLimit: 1,
+      startUrls: ["https://www.komplett.se/category/1"],
+      renderJs: true,
+    });
+
+    expect(proxyMock.fetchProductList).toHaveBeenCalledTimes(1);
+    expect(proxyMock.fetchProduct).toHaveBeenCalledTimes(1);
+    expect(records).toHaveLength(1);
+  });
+
   test("elgiganten run re-labels mapped products to elgiganten", async () => {
     const proxyMock = {
       fetchProductList: jest.fn().mockResolvedValue({

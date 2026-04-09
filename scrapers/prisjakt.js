@@ -11,6 +11,12 @@ const {
   parseNextData,
   findArrayInObject,
 } = require("../lib/parse");
+const {
+  getItemLimit,
+  getPageLimit,
+  isItemLimitReached,
+  takeRemaining,
+} = require("../lib/source-controls");
 
 // Prisjakt is a price comparison site.
 // Primary value: accurate EAN + product names in their catalogue.
@@ -20,33 +26,38 @@ const {
 const RETAILER = "prisjakt";
 const BASE_URL = "https://www.prisjakt.nu";
 
-function getDefaultSeedUrls() {
-  return [
-    "https://www.prisjakt.nu/kategori/laptopsdatorer",
-    "https://www.prisjakt.nu/kategori/processorer",
-    "https://www.prisjakt.nu/kategori/grafikkort",
-  ];
+function extractExternalIdFromProductUrl(productUrl) {
+  try {
+    const url = new URL(productUrl);
+    const queryId = url.searchParams.get("p");
+    if (queryId) return queryId;
+
+    const pathMatch = url.pathname.match(/\/(?:produkt|product)\/(\d+)/i);
+    return pathMatch?.[1] ?? null;
+  } catch (_) {
+    return null;
+  }
 }
 
 // ─── Extract product links from a category listing page ───────────────────────
 function extractProductLinks($) {
   const links = new Set();
 
-  // Prisjakt uses Next.js — product links go to /produkt/{id}-{slug}
-  $('a[href*="/produkt/"]').each((_, el) => {
+  // Prisjakt uses two URL formats:
+  //   Legacy PHP: /produkt.php?p={id}   ← MUST preserve query string
+  //   Slug style: /produkt/{id}-{slug}  ← strip query string
+  // Selector uses *="/produkt" (no trailing slash) to match both.
+  $('a[href*="/produkt"], a[href*="/product/"]').each((_, el) => {
     const href = $(el).attr("href");
     if (!href) return;
-    const clean = href.split("?")[0]; // strip query string
+    // Preserve ?p=ID for legacy PHP URLs; strip for slug-style URLs.
+    const clean = href.includes("/produkt.php")
+      ? href // keep full URL including query string
+      : href.split("?")[0];
     const full = clean.startsWith("http") ? clean : `${BASE_URL}${clean}`;
-    links.add(full);
-  });
-
-  // Swedish variant /product/
-  $('a[href*="/product/"]').each((_, el) => {
-    const href = $(el).attr("href");
-    if (!href) return;
-    const clean = href.split("?")[0];
-    const full = clean.startsWith("http") ? clean : `${BASE_URL}${clean}`;
+    // Guard: only accept recognisable product URL patterns.
+    if (!full.includes("/produkt.php") && !full.match(/\/produkt\/[\d-]/))
+      return;
     links.add(full);
   });
 
@@ -109,6 +120,9 @@ function mapNextDataProduct(raw) {
     affiliate_url: fullUrl,
     image_url: raw.image?.url || raw.imageUrl || null,
     ean,
+    external_id: raw.id
+      ? String(raw.id)
+      : extractExternalIdFromProductUrl(fullUrl),
     scraped_at: new Date(),
     _productUrl: fullUrl,
   };
@@ -159,7 +173,14 @@ async function parseProductPage(productUrl, sourceConfig, log) {
       const ean =
         parseEan(item.gtin13) || parseEan(item.gtin8) || parseEan(item.gtin);
       const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
-      const price = offers ? parsePrice(String(offers.price || "0")) : null;
+      // Prisjakt uses AggregateOffer with lowPrice, not the plain price field.
+      const rawPrice = offers?.price ?? offers?.lowPrice ?? offers?.highPrice;
+      const price =
+        rawPrice !== null && rawPrice !== undefined
+          ? typeof rawPrice === "number"
+            ? rawPrice
+            : parsePrice(String(rawPrice))
+          : null;
       const name = item.name;
       if (!name || !price) continue;
       return {
@@ -168,6 +189,11 @@ async function parseProductPage(productUrl, sourceConfig, log) {
         price_sek: price,
         in_stock: true,
         affiliate_url: productUrl,
+        external_id: extractExternalIdFromProductUrl(productUrl),
+        brand:
+          typeof item.brand === "string"
+            ? item.brand
+            : (item.brand?.name ?? null),
         image_url:
           typeof item.image === "string"
             ? item.image
@@ -183,21 +209,26 @@ async function parseProductPage(productUrl, sourceConfig, log) {
 
 // ─── Extract next-page URL from Prisjakt listing page ─────────────────────────
 function extractNextPageUrl($, currentUrl) {
-  const nextLink = $('a[rel="next"]').first();
-  if (nextLink.length) {
-    const href = nextLink.attr("href");
+  // Strategy 1: standard rel="next" link in <head> or inline
+  const relNext = $('a[rel="next"], link[rel="next"]').first();
+  if (relNext.length) {
+    const href = relNext.attr("href");
     if (href) return href.startsWith("http") ? href : `${BASE_URL}${href}`;
   }
 
-  // Prisjakt may use ?page=N or /page/N
+  // Derive next page number from the current URL
   const url = new URL(currentUrl);
   const page = parseInt(url.searchParams.get("page") || "1", 10);
-  const totalText = $('[class*="total"], [class*="pagination"]').text();
-  const totalMatch = totalText.match(/(\d+)\s*(sidor|pages)/i);
-  if (totalMatch && page < parseInt(totalMatch[1], 10)) {
-    url.searchParams.set("page", String(page + 1));
+  const nextPageNum = page + 1;
+
+  // Strategy 2: Prisjakt renders numbered page buttons (?page=N).
+  // If an anchor for the next page number exists in the DOM, follow it.
+  const nextPageAnchor = $(`a[href*="page=${nextPageNum}"]`).first();
+  if (nextPageAnchor.length) {
+    url.searchParams.set("page", String(nextPageNum));
     return url.toString();
   }
+
   return null;
 }
 
@@ -207,16 +238,27 @@ function extractNextPageUrl($, currentUrl) {
 async function run(sourceConfig) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(3); // max concurrent product page fetches
-  const pageLimit = sourceConfig.pageLimit ?? 3;
+  const pageLimit = getPageLimit(sourceConfig, 3);
+  const itemLimit = getItemLimit(sourceConfig);
   const allRecords = [];
 
-  const seedUrls = sourceConfig.startUrls ?? getDefaultSeedUrls();
+  const seedUrls = Array.isArray(sourceConfig.startUrls)
+    ? sourceConfig.startUrls.filter(Boolean)
+    : [];
+  if (seedUrls.length === 0) {
+    log.warn("No startUrls configured in sources.json; skipping source");
+    return [];
+  }
 
   for (const seedUrl of seedUrls) {
     let pageUrl = seedUrl;
     let pageCount = 0;
 
-    while (pageUrl && pageCount < pageLimit) {
+    while (
+      pageUrl &&
+      pageCount < pageLimit &&
+      !isItemLimitReached(allRecords.length, itemLimit)
+    ) {
       pageCount++;
       log.info("Scraping Prisjakt listing", { url: pageUrl, page: pageCount });
 
@@ -236,7 +278,11 @@ async function run(sourceConfig) {
       // ── Strategy 1: __NEXT_DATA__ product list ──
       const nextData = parseNextData($);
       const rawProducts = extractFromNextData(nextData);
-      const products = rawProducts.map(mapNextDataProduct).filter(Boolean);
+      const products = takeRemaining(
+        rawProducts.map(mapNextDataProduct).filter(Boolean),
+        allRecords.length,
+        itemLimit,
+      );
 
       if (products.length > 0) {
         log.debug("Got products from __NEXT_DATA__", {
@@ -259,7 +305,11 @@ async function run(sourceConfig) {
         allRecords.push(...products.map(({ _productUrl: _, ...rest }) => rest));
       } else {
         // ── Strategy 2: Collect product links, fetch each product page ──
-        const productLinks = extractProductLinks($);
+        const productLinks = takeRemaining(
+          extractProductLinks($),
+          allRecords.length,
+          itemLimit,
+        );
         log.debug("Found product links to visit", {
           count: productLinks.length,
         });
