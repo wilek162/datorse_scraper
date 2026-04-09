@@ -1,0 +1,4 @@
+/ = 401
+/sources = 401
+/logs = 401
+/health = 401

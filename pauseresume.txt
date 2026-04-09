@@ -1,0 +1,4 @@
+badge-type
+badge-ok
+badge-paused
+badge-ok

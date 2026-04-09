@@ -9,6 +9,8 @@
   "scripts": {
     "start": "node lib/scheduler.js",
     "dev": "node --watch lib/scheduler.js",
+    "admin": "node admin/server.js",
+    "admin:dev": "node --watch admin/server.js",
     "migrate": "node migrations/run.js",
     "db:add-partitions": "node scripts/add-partition.js",
     "db:smoke": "node tests/db-smoke.js",
@@ -29,6 +31,8 @@
     "cheerio": "^1.0.0",
     "csv-parse": "^5.6.0",
     "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.22.1",
     "fast-xml-parser": "^5.5.10",
     "mysql2": "^3.12.0",
     "node-cron": "^3.0.3",

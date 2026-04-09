@@ -19,7 +19,9 @@ const {
   takeRemaining,
 } = require("../lib/source-controls");
 
-const MERCHANT_ALIASES = require(path.resolve(__dirname, "../config/merchant-aliases.json"));
+const MERCHANT_ALIASES = require(
+  path.resolve(__dirname, "../config/merchant-aliases.json"),
+);
 
 // Prisjakt is a price comparison site.
 // Primary value: accurate EAN + product names in their catalogue.
@@ -57,14 +59,25 @@ function parsePriceRows($, _productUrl) {
 
   $(".pj-ui-price-row").each((_, el) => {
     const row = $(el);
-    const storeName = row.find('[class*="StoreInfoTitle"]').first().text().trim();
+    const storeName = row
+      .find('[class*="StoreInfoTitle"]')
+      .first()
+      .text()
+      .trim();
     if (!storeName) return;
 
-    const priceText = row.find('[data-test="PriceLabel"]').first().text().trim();
+    const priceText = row
+      .find('[data-test="PriceLabel"]')
+      .first()
+      .text()
+      .trim();
     const price = parsePrice(priceText);
     if (!price || price <= 0) return;
 
-    const affiliateHref = row.find('a[href*="go-to-shop"]').first().attr("href");
+    const affiliateHref = row
+      .find('a[href*="go-to-shop"]')
+      .first()
+      .attr("href");
     if (!affiliateHref) return;
     const affiliateUrl = affiliateHref.startsWith("http")
       ? affiliateHref
@@ -253,13 +266,18 @@ async function parseProductPage(productUrl, sourceConfig, log) {
   if (!baseName || !aggregatePrice) {
     const schemas = parseJsonLd($);
     for (const schema of schemas) {
-      const items = Array.isArray(schema["@graph"]) ? schema["@graph"] : [schema];
+      const items = Array.isArray(schema["@graph"])
+        ? schema["@graph"]
+        : [schema];
       for (const item of items) {
         if (item["@type"] !== "Product") continue;
         if (!baseName) baseName = item.name ?? null;
         if (!baseEan) {
           baseEan =
-            parseEan(item.gtin13) || parseEan(item.gtin8) || parseEan(item.gtin) || null;
+            parseEan(item.gtin13) ||
+            parseEan(item.gtin8) ||
+            parseEan(item.gtin) ||
+            null;
         }
         if (!baseBrand) {
           baseBrand =
@@ -274,11 +292,16 @@ async function parseProductPage(productUrl, sourceConfig, log) {
               : (item.image?.url ?? null);
         }
         if (!aggregatePrice) {
-          const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
-          const rawPrice = offers?.price ?? offers?.lowPrice ?? offers?.highPrice;
+          const offers = Array.isArray(item.offers)
+            ? item.offers[0]
+            : item.offers;
+          const rawPrice =
+            offers?.price ?? offers?.lowPrice ?? offers?.highPrice;
           if (rawPrice !== null && rawPrice !== undefined) {
             aggregatePrice =
-              typeof rawPrice === "number" ? rawPrice : parsePrice(String(rawPrice));
+              typeof rawPrice === "number"
+                ? rawPrice
+                : parsePrice(String(rawPrice));
           }
         }
         if (baseName && aggregatePrice) break;
@@ -447,7 +470,9 @@ async function run(sourceConfig) {
     }
   }
 
-  const uniqueProducts = new Set(allRecords.map((r) => r.external_id).filter(Boolean)).size;
+  const uniqueProducts = new Set(
+    allRecords.map((r) => r.external_id).filter(Boolean),
+  ).size;
   log.info("Prisjakt run complete", {
     totalRecords: allRecords.length,
     uniqueProducts,

@@ -136,13 +136,13 @@ status: ok
 
 **Caveats & mitigations:**
 
-| Caveat | Mitigation |
-|--------|------------|
-| Partial row count (4–6 of 14) | Accepted for MVP; full list deferred |
-| Store name → retailer slug mapping | `config/merchant-aliases.json` (30+ entries) + slugify fallback |
-| Affiliate URL attribution | Stored as `affiliate_url`; source traceable via `via_source` |
-| renderJs required | Product pages scraped with `renderJs: true` |
-| `itemLimit` cuts offer records | At run level, 1 product yields ~5 records; use `N_products × 5` |
+| Caveat                                     | Mitigation                                                                         |
+| ------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Partial row count (4–6 of 14)              | Accepted for MVP; full list deferred                                               |
+| Store name → retailer slug mapping         | `config/merchant-aliases.json` (30+ entries) + slugify fallback                    |
+| Affiliate URL attribution                  | Stored as `affiliate_url`; source traceable via `via_source`                       |
+| renderJs required                          | Product pages scraped with `renderJs: true`                                        |
+| `itemLimit` cuts offer records             | At run level, 1 product yields ~5 records; use `N_products × 5`                    |
 | Two offer records share same `external_id` | Fixed: `markProductSourceMatched` no longer uses `LIMIT 1` for external_id updates |
 
 **DB changes:**
@@ -160,19 +160,19 @@ recordsUpserted: 15, status: ok
 
 **DB state after run (all retailers + via_source):**
 
-| retailer           | via_source   | rows |
-|--------------------|--------------|------|
-| prisjakt           | prisjakt     | 5    |
-| webhallen          | prisjakt     | 3    |
-| elgiganten         | elgiganten   | 2    |
-| power              | prisjakt     | 2    |
-| cs-megastore       | prisjakt     | 1    |
-| e-ville            | prisjakt     | 1    |
-| proshop            | prisjakt     | 1    |
-| amazon             | prisjakt     | 1    |
-| scandinavian-photo | prisjakt     | 1    |
-| macrent            | prisjakt     | 1    |
-| netonnet           | prisjakt     | 1    |
+| retailer           | via_source | rows |
+| ------------------ | ---------- | ---- |
+| prisjakt           | prisjakt   | 5    |
+| webhallen          | prisjakt   | 3    |
+| elgiganten         | elgiganten | 2    |
+| power              | prisjakt   | 2    |
+| cs-megastore       | prisjakt   | 1    |
+| e-ville            | prisjakt   | 1    |
+| proshop            | prisjakt   | 1    |
+| amazon             | prisjakt   | 1    |
+| scandinavian-photo | prisjakt   | 1    |
+| macrent            | prisjakt   | 1    |
+| netonnet           | prisjakt   | 1    |
 
 **Deliverables:**
 
@@ -247,34 +247,34 @@ Existing scrapers built but NOT yet tested against the resolver layer (created a
 
 ## Source Status
 
-| Source     | Tier | Resolver Path | Last Run Status   | Records (last run)  |
-| ---------- | ---- | ------------- | ----------------- | ------------------- |
+| Source     | Tier | Resolver Path | Last Run Status   | Records (last run)                                 |
+| ---------- | ---- | ------------- | ----------------- | -------------------------------------------------- |
 | prisjakt   | asp  | external_id   | ✅ ok             | 15 found, 15 upserted (3 products × ~5 offer rows) |
-| elgiganten | asp  | EAN           | ✅ ok             | 2 found, 2 upserted |
-| komplett   | asp  | —             | ❌ not tested     | —                   |
-| inet       | asp  | —             | ❌ not tested     | —                   |
-| webhallen  | asp  | —             | ❌ not tested     | —                   |
-| adtraction | —    | —             | ❌ feed stub only | —                   |
-| amazon     | —    | —             | ❌ feed stub only | —                   |
-| awin       | —    | —             | ❌ feed stub only | —                   |
+| elgiganten | asp  | EAN           | ✅ ok             | 2 found, 2 upserted                                |
+| komplett   | asp  | —             | ❌ not tested     | —                                                  |
+| inet       | asp  | —             | ❌ not tested     | —                                                  |
+| webhallen  | asp  | —             | ❌ not tested     | —                                                  |
+| adtraction | —    | —             | ❌ feed stub only | —                                                  |
+| amazon     | —    | —             | ❌ feed stub only | —                                                  |
+| awin       | —    | —             | ❌ feed stub only | —                                                  |
 
 ---
 
 ## Architecture Decisions
 
-| Decision                                       | Reasoning                                                               |
-| ---------------------------------------------- | ----------------------------------------------------------------------- |
-| EAN as primary canonical key                   | EAN is the universal product identifier across all retailers/feeds      |
-| `(source_id, external_id)` as fallback key     | Enables canonical products even when EAN is unavailable (e.g. Prisjakt) |
-| `ean` nullable in `dsc_products`               | Required to support external_id-only path                               |
-| Separate `dsc_product_sources` table           | Decouples raw ingest from canonical layer; enables resolver replay      |
-| Published views (not materialized)             | Low maintenance; acceptable for read-only WP consumption at low volume  |
-| Partitioned `dsc_price_history`                | Future-proofing for large datasets; currently single partition          |
-| Zyte `browserHtml` over `productNavigation` AI | Elgiganten finding: AI nav fails on Akamai sites; raw HTML is reliable  |
-| Cheerio HTML parsing for category pages        | More durable than AI extraction for navigation-only scraping            |
-| Zyte `fetchProduct` AI for product detail      | Works reliably for all tested ASP sites including Elgiganten            |
-| `via_source` column on `dsc_prices`            | Tracks origin scraper per price row; enables priority/protection logic  |
-| Prisjakt sources merchant rows directly        | Prisjakt product pages expose per-merchant prices — supplements dedicated scrapers |
+| Decision                                       | Reasoning                                                                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| EAN as primary canonical key                   | EAN is the universal product identifier across all retailers/feeds                                             |
+| `(source_id, external_id)` as fallback key     | Enables canonical products even when EAN is unavailable (e.g. Prisjakt)                                        |
+| `ean` nullable in `dsc_products`               | Required to support external_id-only path                                                                      |
+| Separate `dsc_product_sources` table           | Decouples raw ingest from canonical layer; enables resolver replay                                             |
+| Published views (not materialized)             | Low maintenance; acceptable for read-only WP consumption at low volume                                         |
+| Partitioned `dsc_price_history`                | Future-proofing for large datasets; currently single partition                                                 |
+| Zyte `browserHtml` over `productNavigation` AI | Elgiganten finding: AI nav fails on Akamai sites; raw HTML is reliable                                         |
+| Cheerio HTML parsing for category pages        | More durable than AI extraction for navigation-only scraping                                                   |
+| Zyte `fetchProduct` AI for product detail      | Works reliably for all tested ASP sites including Elgiganten                                                   |
+| `via_source` column on `dsc_prices`            | Tracks origin scraper per price row; enables priority/protection logic                                         |
+| Prisjakt sources merchant rows directly        | Prisjakt product pages expose per-merchant prices — supplements dedicated scrapers                             |
 | Dedicated-scraper rows protected from Prisjakt | `via_source != 'prisjakt'` rows are immune to Prisjakt overwrites; ensures dedicated-scraper data quality wins |
 
 ---
