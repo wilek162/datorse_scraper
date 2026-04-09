@@ -52,7 +52,7 @@ function extractArticleId(url, zyteProduct = {}) {
 function extractProductLinks($) {
   const links = new Set();
   $('a[href*="/product/"]').each((_, el) => {
-    const href = $( el).attr("href");
+    const href = $(el).attr("href");
     if (!href) return;
     // Only accept product detail pages (exclude product comparison, etc.)
     if (!href.includes("/product/")) return;
@@ -186,4 +186,3 @@ async function run(sourceConfig) {
 }
 
 module.exports = { run };
-

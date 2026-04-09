@@ -1,5 +1,6 @@
 "use strict";
 
+const path = require("path");
 const pLimit = require("p-limit");
 const logger = require("../lib/logger");
 const proxy = require("../lib/proxy");
@@ -18,13 +19,79 @@ const {
   takeRemaining,
 } = require("../lib/source-controls");
 
+const MERCHANT_ALIASES = require(path.resolve(__dirname, "../config/merchant-aliases.json"));
+
 // Prisjakt is a price comparison site.
 // Primary value: accurate EAN + product names in their catalogue.
-// Price is the best (lowest) price shown across all retailers.
-// Affiliate URL: Prisjakt product page (tracking through Prisjakt's program if joined).
+// Per-store price data is extracted from the rendered price rows on each product page.
+// The aggregate "prisjakt" row (lowPrice) is also kept as a fallback/catalogue record.
 
 const RETAILER = "prisjakt";
 const BASE_URL = "https://www.prisjakt.nu";
+
+// ─── Merchant name normalisation ──────────────────────────────────────────────
+function slugifyMerchant(name) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/**
+ * Maps a Prisjakt-displayed store name to our canonical retailer slug.
+ * Matches against config/merchant-aliases.json first, then auto-slugifies.
+ */
+function normalizeRetailerSlug(storeName) {
+  return MERCHANT_ALIASES[storeName] ?? slugifyMerchant(storeName);
+}
+
+// ─── Extract per-store offer rows from a rendered product page ────────────────
+/**
+ * Parses the rendered Prisjakt product page HTML for individual merchant offers.
+ * Each .pj-ui-price-row contains one store's offer.
+ *
+ * Returns an array of partial offer objects (no EAN/name — caller appends those).
+ */
+function parsePriceRows($, _productUrl) {
+  const rows = [];
+
+  $(".pj-ui-price-row").each((_, el) => {
+    const row = $(el);
+    const storeName = row.find('[class*="StoreInfoTitle"]').first().text().trim();
+    if (!storeName) return;
+
+    const priceText = row.find('[data-test="PriceLabel"]').first().text().trim();
+    const price = parsePrice(priceText);
+    if (!price || price <= 0) return;
+
+    const affiliateHref = row.find('a[href*="go-to-shop"]').first().attr("href");
+    if (!affiliateHref) return;
+    const affiliateUrl = affiliateHref.startsWith("http")
+      ? affiliateHref
+      : `${BASE_URL}${affiliateHref}`;
+
+    // Derive a Prisjakt-internal shop ID from the URL: /go-to-shop/{shopId}/...
+    const shopIdMatch = affiliateHref.match(/\/go-to-shop\/(\d+)\//);
+    const prisjaktShopId = shopIdMatch ? shopIdMatch[1] : null;
+
+    const rowText = row.text();
+    const outOfStock =
+      rowText.toLowerCase().includes("slut") ||
+      rowText.toLowerCase().includes("ej i lager") ||
+      rowText.toLowerCase().includes("utgå");
+
+    rows.push({
+      retailer: normalizeRetailerSlug(storeName),
+      price_sek: price,
+      affiliate_url: affiliateUrl,
+      in_stock: !outOfStock,
+      via_source: RETAILER,
+      prisjakt_shop_id: prisjaktShopId, // informational — not persisted
+    });
+  });
+
+  return rows;
+}
 
 function extractExternalIdFromProductUrl(productUrl) {
   try {
@@ -128,20 +195,34 @@ function mapNextDataProduct(raw) {
   };
 }
 
-// ─── Parse a single product page for EAN + price ─────────────────────────────
+// ─── Parse a single product page for EAN + per-store offers ──────────────────
+/**
+ * Fetches a Prisjakt product page and returns an array of ProductRecord.
+ * - With JS rendering: extracts individual merchant offer rows (N records).
+ * - Also always emits one aggregate record with retailer='prisjakt' (lowPrice).
+ * - Returns [] on fetch failure.
+ */
 async function parseProductPage(productUrl, sourceConfig, log) {
   let html;
   try {
-    html = await proxy.fetch(productUrl, { ...sourceConfig, renderJs: false });
+    // renderJs required to load the dynamic .pj-ui-price-row components
+    html = await proxy.fetch(productUrl, { ...sourceConfig, renderJs: true });
   } catch (err) {
     log.debug("Failed to fetch Prisjakt product page", {
       url: productUrl,
       err: err.message,
     });
-    return null;
+    return [];
   }
 
   const $ = load(html);
+
+  // ── Base product fields (name, EAN, brand, image, external_id) ─────────────
+  let baseName = null;
+  let baseEan = null;
+  let baseBrand = null;
+  let baseImage = null;
+  let aggregatePrice = null;
 
   // 1. __NEXT_DATA__ on product page
   const nextData = parseNextData($);
@@ -156,55 +237,91 @@ async function parseProductPage(productUrl, sourceConfig, log) {
         if (p && (p.name || p.title)) {
           const mapped = mapNextDataProduct(p);
           if (mapped) {
-            mapped.affiliate_url = productUrl;
-            return mapped;
+            baseName = mapped.name;
+            baseEan = mapped.ean ?? null;
+            baseBrand = mapped.brand ?? null;
+            baseImage = mapped.image_url ?? null;
+            aggregatePrice = mapped.price_sek;
           }
+          break;
         }
       } catch (_) {}
     }
   }
 
-  // 2. JSON-LD Product schema
-  const schemas = parseJsonLd($);
-  for (const schema of schemas) {
-    const items = Array.isArray(schema["@graph"]) ? schema["@graph"] : [schema];
-    for (const item of items) {
-      if (item["@type"] !== "Product") continue;
-      const ean =
-        parseEan(item.gtin13) || parseEan(item.gtin8) || parseEan(item.gtin);
-      const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
-      // Prisjakt uses AggregateOffer with lowPrice, not the plain price field.
-      const rawPrice = offers?.price ?? offers?.lowPrice ?? offers?.highPrice;
-      const price =
-        rawPrice !== null && rawPrice !== undefined
-          ? typeof rawPrice === "number"
-            ? rawPrice
-            : parsePrice(String(rawPrice))
-          : null;
-      const name = item.name;
-      if (!name || !price) continue;
-      return {
-        name: String(name).trim().slice(0, 512),
-        retailer: RETAILER,
-        price_sek: price,
-        in_stock: true,
-        affiliate_url: productUrl,
-        external_id: extractExternalIdFromProductUrl(productUrl),
-        brand:
-          typeof item.brand === "string"
-            ? item.brand
-            : (item.brand?.name ?? null),
-        image_url:
-          typeof item.image === "string"
-            ? item.image
-            : (item.image?.url ?? null),
-        ean,
-        scraped_at: new Date(),
-      };
+  // 2. JSON-LD Product schema (always present on prisjakt, even without NEXT_DATA)
+  if (!baseName || !aggregatePrice) {
+    const schemas = parseJsonLd($);
+    for (const schema of schemas) {
+      const items = Array.isArray(schema["@graph"]) ? schema["@graph"] : [schema];
+      for (const item of items) {
+        if (item["@type"] !== "Product") continue;
+        if (!baseName) baseName = item.name ?? null;
+        if (!baseEan) {
+          baseEan =
+            parseEan(item.gtin13) || parseEan(item.gtin8) || parseEan(item.gtin) || null;
+        }
+        if (!baseBrand) {
+          baseBrand =
+            typeof item.brand === "string"
+              ? item.brand
+              : (item.brand?.name ?? null);
+        }
+        if (!baseImage) {
+          baseImage =
+            typeof item.image === "string"
+              ? item.image
+              : (item.image?.url ?? null);
+        }
+        if (!aggregatePrice) {
+          const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
+          const rawPrice = offers?.price ?? offers?.lowPrice ?? offers?.highPrice;
+          if (rawPrice !== null && rawPrice !== undefined) {
+            aggregatePrice =
+              typeof rawPrice === "number" ? rawPrice : parsePrice(String(rawPrice));
+          }
+        }
+        if (baseName && aggregatePrice) break;
+      }
     }
   }
 
-  return null;
+  if (!baseName || !aggregatePrice) return [];
+
+  const externalId = extractExternalIdFromProductUrl(productUrl);
+  const baseFields = {
+    name: baseName,
+    ean: baseEan ?? undefined,
+    brand: baseBrand,
+    image_url: baseImage,
+    external_id: externalId,
+    scraped_at: new Date(),
+    in_stock: true,
+  };
+
+  // ── Per-store merchant offer rows ───────────────────────────────────────────
+  const offerRows = parsePriceRows($, productUrl);
+
+  const records = offerRows.map((offer) => ({
+    ...baseFields,
+    retailer: offer.retailer,
+    price_sek: offer.price_sek,
+    affiliate_url: offer.affiliate_url,
+    in_stock: offer.in_stock,
+    via_source: RETAILER,
+  }));
+
+  // ── Aggregate "prisjakt" record (always present as catalogue/fallback row) ──
+  records.push({
+    ...baseFields,
+    retailer: RETAILER,
+    price_sek: aggregatePrice,
+    affiliate_url: productUrl,
+    in_stock: true,
+    via_source: RETAILER,
+  });
+
+  return records;
 }
 
 // ─── Extract next-page URL from Prisjakt listing page ─────────────────────────
@@ -288,45 +405,53 @@ async function run(sourceConfig) {
         log.debug("Got products from __NEXT_DATA__", {
           count: products.length,
         });
-        // Enrich ones missing EAN
-        const needsEan = products.filter((p) => !p.ean);
-        await Promise.all(
-          needsEan.map((p) =>
-            limit(async () => {
-              const enriched = await parseProductPage(
-                p._productUrl,
-                sourceConfig,
-                log,
-              );
-              if (enriched?.ean) p.ean = enriched.ean;
-            }),
+        // For every product, fetch the product page to get offer rows + EAN.
+        // parseProductPage now returns ProductRecord[]; flatten into allRecords.
+        const batches = await Promise.all(
+          products.map((p) =>
+            limit(() => parseProductPage(p._productUrl, sourceConfig, log)),
           ),
         );
-        allRecords.push(...products.map(({ _productUrl: _, ...rest }) => rest));
+        const flatRecords = batches.flat();
+        log.debug("Prisjakt offer records from NEXT_DATA batch", {
+          products: products.length,
+          merchantOffers: flatRecords.length,
+        });
+        allRecords.push(...flatRecords);
       } else {
         // ── Strategy 2: Collect product links, fetch each product page ──
         const productLinks = takeRemaining(
           extractProductLinks($),
           allRecords.length,
-          itemLimit,
+          // Divide itemLimit by ~5 since each product yields ~5 records
+          itemLimit ? Math.ceil(itemLimit / 5) : itemLimit,
         );
         log.debug("Found product links to visit", {
           count: productLinks.length,
         });
 
-        const batch = await Promise.all(
+        const batches = await Promise.all(
           productLinks.map((url) =>
             limit(() => parseProductPage(url, sourceConfig, log)),
           ),
         );
-        allRecords.push(...batch.filter(Boolean));
+        const flatRecords = batches.flat();
+        log.debug("Prisjakt offer records from link batch", {
+          links: productLinks.length,
+          merchantOffers: flatRecords.length,
+        });
+        allRecords.push(...flatRecords);
       }
 
       pageUrl = extractNextPageUrl($, pageUrl);
     }
   }
 
-  log.info("Prisjakt run complete", { totalRecords: allRecords.length });
+  const uniqueProducts = new Set(allRecords.map((r) => r.external_id).filter(Boolean)).size;
+  log.info("Prisjakt run complete", {
+    totalRecords: allRecords.length,
+    uniqueProducts,
+  });
   return allRecords;
 }
 
