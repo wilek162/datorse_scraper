@@ -1,0 +1,99 @@
+<%- include('partials/header', { title }) %>
+
+       <!-- Search bar -->
+       <form class="filter-bar" method="get" action="/data">
+              <label>
+                     Search
+                     <input type="search" name="q" value="<%= q %>" placeholder="Name, EAN, or brand…"
+                            style="min-width:240px">
+              </label>
+              <div class="filter-actions">
+                     <button class="btn btn-primary" type="submit">Search</button>
+                     <% if (q) { %><a class="btn" href="/data">Clear</a>
+                            <% } %>
+              </div>
+       </form>
+
+       <p class="hint">
+              <% if (q) { %><strong>
+                            <%= total %>
+                     </strong> products matching "<%= q %>"<% } else { %><strong>
+                                          <%= total.toLocaleString() %>
+                                   </strong> products total<% } %>
+                                          &mdash; page <%= page %> of <%= Math.max(1, Math.ceil(total / pageSize)) %>
+       </p>
+
+       <table class="table">
+              <thead>
+                     <tr>
+                            <th>ID</th>
+                            <th>EAN</th>
+                            <th>Name</th>
+                            <th>Brand</th>
+                            <th>Category</th>
+                            <th>Offers</th>
+                            <th>Best Price</th>
+                            <th>Last Updated</th>
+                     </tr>
+              </thead>
+              <tbody>
+                     <% for (const p of products) { %>
+                            <tr>
+                                   <td><a href="/data/product/<%= p.id %>">#<%= p.id %></a></td>
+                                   <td><code style="font-size:.78rem"><%= p.ean %></code></td>
+                                   <td><a href="/data/product/<%= p.id %>">
+                                                 <%= p.name %>
+                                          </a></td>
+                                   <td>
+                                          <%= p.brand ?? '–' %>
+                                   </td>
+                                   <td>
+                                          <%= p.category ?? '–' %>
+                                   </td>
+                                   <td>
+                                          <% if (p.price_count> 0) { %>
+                                                 <span class="badge badge-ok">
+                                                        <%= p.price_count %>
+                                                 </span>
+                                                 <% } else { %>
+                                                        <span class="badge badge-disabled">0</span>
+                                                        <% } %>
+                                   </td>
+                                   <td>
+                                          <% if (p.best_price !=null) { %>
+                                                 <strong>
+                                                        <%= Number(p.best_price).toLocaleString('sv-SE') %> kr
+                                                 </strong>
+                                                 <% } else { %>
+                                                        <span style="color:var(--text-muted)">no price</span>
+                                                        <% } %>
+                                   </td>
+                                   <td
+                                          title="<%= p.last_price_at ? new Date(p.last_price_at).toLocaleString('sv-SE') : '' %>">
+                                          <%= p.last_price_at ? timeAgo(p.last_price_at) : '–' %>
+                                   </td>
+                            </tr>
+                            <% } %>
+                                   <% if (!products.length) { %>
+                                          <tr>
+                                                 <td colspan="8" class="empty">No products found<%= q ? ` for "${q}" `
+                                                               : '' %>.</td>
+                                          </tr>
+                                          <% } %>
+              </tbody>
+       </table>
+
+       <!-- Pagination -->
+       <nav class="pagination">
+              <% if (page> 1) { %>
+                     <a class="btn btn-sm" href="/data?page=<%= page - 1 %>&q=<%= encodeURIComponent(q) %>">← Prev</a>
+                     <% } %>
+                            <span class="pagination-info">Page <%= page %> / <%= Math.max(1, Math.ceil(total /
+                                                 pageSize)) %></span>
+                            <% if (page * pageSize < total) { %>
+                                   <a class="btn btn-sm"
+                                          href="/data?page=<%= page + 1 %>&q=<%= encodeURIComponent(q) %>">Next →</a>
+                                   <% } %>
+       </nav>
+
+       <%- include('partials/footer') %>

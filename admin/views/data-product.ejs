@@ -1,0 +1,153 @@
+<%- include('partials/header', { title }) %>
+
+       <!-- Breadcrumb -->
+       <nav class="breadcrumb">
+              <a href="/data">Database</a>
+              <span class="breadcrumb-sep">/</span>
+              <span>
+                     <%= product.name %>
+              </span>
+       </nav>
+
+       <!-- Product metadata -->
+       <section class="detail-meta">
+              <dl class="kv-grid">
+                     <% if (product.image_url) { %>
+                            <dt>Image</dt>
+                            <dd><img src="<%= product.image_url %>" alt="<%= product.name %>"
+                                          style="max-height:80px;border-radius:4px;border:1px solid var(--border)"></dd>
+                            <% } %>
+                                   <dt>EAN</dt>
+                                   <dd><code><%= product.ean %></code></dd>
+                                   <dt>Brand</dt>
+                                   <dd>
+                                          <%= product.brand ?? '–' %>
+                                   </dd>
+                                   <dt>Category</dt>
+                                   <dd>
+                                          <%= product.category ?? '–' %>
+                                   </dd>
+                                   <dt>Created</dt>
+                                   <dd><time>
+                                                 <%= new Date(product.created_at).toLocaleString('sv-SE') %>
+                                          </time></dd>
+                                   <dt>Updated</dt>
+                                   <dd><time>
+                                                 <%= new Date(product.updated_at).toLocaleString('sv-SE') %>
+                                          </time></dd>
+              </dl>
+       </section>
+
+       <!-- Current prices -->
+       <h2>Current Prices (<%= prices.length %> retailer<%= prices.length !==1 ? 's' : '' %>)</h2>
+       <% if (prices.length) { %>
+              <table class="table">
+                     <thead>
+                            <tr>
+                                   <th>Retailer</th>
+                                   <th>Price (SEK)</th>
+                                   <th>In Stock</th>
+                                   <th>Scraped</th>
+                                   <th>Affiliate URL</th>
+                            </tr>
+                     </thead>
+                     <tbody>
+                            <% for (const p of prices) { %>
+                                   <tr>
+                                          <td><strong>
+                                                        <%= p.retailer %>
+                                                 </strong></td>
+                                          <td><strong>
+                                                        <%= Number(p.price_sek).toLocaleString('sv-SE') %> kr
+                                                 </strong></td>
+                                          <td><span class="badge <%= p.in_stock ? 'badge-ok' : 'badge-error' %>">
+                                                        <%= p.in_stock ? 'yes' : 'no' %>
+                                                 </span></td>
+                                          <td title="<%= new Date(p.scraped_at).toLocaleString('sv-SE') %>">
+                                                 <%= timeAgo(p.scraped_at) %>
+                                          </td>
+                                          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis">
+                                                 <a href="<%= p.affiliate_url %>" target="_blank"
+                                                        rel="noopener noreferrer" title="<%= p.affiliate_url %>">Open
+                                                        ↗</a>
+                                          </td>
+                                   </tr>
+                                   <% } %>
+                     </tbody>
+              </table>
+              <% } else { %>
+                     <p class="hint">No current price rows for this product.</p>
+                     <% } %>
+
+                            <!-- Price history -->
+                            <h2>Price History (<%= history.length %> entries, newest first)</h2>
+                            <% if (history.length) { %>
+                                   <table class="table">
+                                          <thead>
+                                                 <tr>
+                                                        <th>Retailer</th>
+                                                        <th>Price (SEK)</th>
+                                                        <th>Recorded</th>
+                                                 </tr>
+                                          </thead>
+                                          <tbody>
+                                                 <% for (const h of history) { %>
+                                                        <tr>
+                                                               <td>
+                                                                      <%= h.retailer %>
+                                                               </td>
+                                                               <td>
+                                                                      <%= Number(h.price_sek).toLocaleString('sv-SE') %>
+                                                                             kr
+                                                               </td>
+                                                               <td
+                                                                      title="<%= new Date(h.recorded_at).toLocaleString('sv-SE') %>">
+                                                                      <%= timeAgo(h.recorded_at) %>
+                                                               </td>
+                                                        </tr>
+                                                        <% } %>
+                                          </tbody>
+                                   </table>
+                                   <% } else { %>
+                                          <p class="hint">No price history yet.</p>
+                                          <% } %>
+
+                                                 <!-- Matched scraper sources -->
+                                                 <% if (sources.length) { %>
+                                                        <h2>Matched Source Rows (<%= sources.length %>)</h2>
+                                                        <table class="table">
+                                                               <thead>
+                                                                      <tr>
+                                                                             <th>Source</th>
+                                                                             <th>External ID</th>
+                                                                             <th>Match status</th>
+                                                                             <th>Scraped</th>
+                                                                      </tr>
+                                                               </thead>
+                                                               <tbody>
+                                                                      <% for (const s of sources) { %>
+                                                                             <tr>
+                                                                                    <td><a href="/logs?source=<%= s.source_id %>">
+                                                                                                  <%= s.source_id %>
+                                                                                           </a></td>
+                                                                                    <td><code
+                                                                                                  style="font-size:.78rem"><%= s.external_id %></code>
+                                                                                    </td>
+                                                                                    <td><span
+                                                                                                  class="badge badge-<%= s.match_status %>">
+                                                                                                  <%= s.match_status %>
+                                                                                           </span></td>
+                                                                                    <td
+                                                                                           title="<%= new Date(s.scraped_at).toLocaleString('sv-SE') %>">
+                                                                                           <%= timeAgo(s.scraped_at) %>
+                                                                                    </td>
+                                                                             </tr>
+                                                                             <% } %>
+                                                               </tbody>
+                                                        </table>
+                                                        <% } %>
+
+                                                               <p style="margin-top:1.25rem"><a class="btn"
+                                                                             href="/data">← Back to Database</a></p>
+
+                                                               <%- include('partials/footer') %>

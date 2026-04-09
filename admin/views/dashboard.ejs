@@ -28,37 +28,37 @@
     </div>
   </section>
 
-  <!-- Per-source quick-status grid (reads dsc_scrape_log) -->
+  <!-- Per-source quick-status grid -->
   <h2>Source Status</h2>
   <div class="source-grid">
     <% for (const s of sources) { const summary=sourceSummary.find(ss=> ss.source_id === s.id);
       const paused = summary?.paused === 1;
-      const status = summary?.last_status ?? 'never';
+      const status = paused ? 'paused' : (summary?.last_status ?? 'never');
       %>
       <div class="source-card source-card--<%= status %>">
         <div class="source-card-header">
-          <strong>
+          <span class="source-card-id">
             <%= s.id %>
-          </strong>
+          </span>
           <% if (!s.enabled) { %><span class="badge badge-disabled">disabled</span>
             <% } %>
               <% if (paused) { %><span class="badge badge-paused">paused</span>
                 <% } %>
         </div>
         <div class="source-card-meta">
-          <span class="badge badge-<%= status %>">
-            <%= status %>
+          <span class="badge badge-<%= summary?.last_status ?? 'disabled' %>">
+            <%= summary?.last_status ?? 'never' %>
           </span>
-          <% if (summary?.last_run) { %>
-            &bull; <time>
-              <%= new Date(summary.last_run).toLocaleString('sv-SE') %>
-            </time>
-            <% } else { %>
-              &bull; never run
-              <% } %>
+          <span class="source-card-time">
+            <% if (summary?.last_run) { %>
+              <%= timeAgo(summary.last_run) %>
+                <% } else { %>
+                  never run
+                  <% } %>
+          </span>
         </div>
         <div class="source-card-actions">
-          <a class="btn btn-sm" href="/sources">Manage</a>
+          <a class="btn btn-sm" href="/sources#source-row-<%= s.id %>">Manage</a>
           <a class="btn btn-sm" href="/logs?source=<%= s.id %>">Logs</a>
         </div>
       </div>
@@ -78,6 +78,49 @@
         <th>Duration</th>
         <th>Started</th>
       </tr>
+    </thead>
+    <tbody>
+      <% for (const log of recentLogs) { %>
+        <tr>
+          <td><a href="/logs/<%= log.id %>">#<%= log.id %></a></td>
+          <td><a href="/logs?source=<%= log.source_id %>">
+              <%= log.source_id %>
+            </a></td>
+          <td><span class="badge badge-<%= log.status %>">
+              <%= log.status %>
+            </span></td>
+          <td>
+            <%= log.records_found ?? '–' %>
+          </td>
+          <td>
+            <%= log.records_upserted ?? '–' %>
+          </td>
+          <td>
+            <%= log.duration_s !=null ? log.duration_s + 's' : '…' %>
+          </td>
+          <td title="<%= new Date(log.started_at).toLocaleString('sv-SE') %>">
+            <%= timeAgo(log.started_at) %>
+          </td>
+        </tr>
+        <% } %>
+          <% if (!recentLogs.length) { %>
+            <tr>
+              <td colspan="7" class="empty">No runs yet.</td>
+            </tr>
+            <% } %>
+    </tbody>
+  </table>
+
+  <%- include('partials/footer') %>
+    <tr>
+      <th>#</th>
+      <th>Source</th>
+      <th>Status</th>
+      <th>Found</th>
+      <th>Upserted</th>
+      <th>Duration</th>
+      <th>Started</th>
+    </tr>
     </thead>
     <tbody>
       <% for (const log of recentLogs) { %>
@@ -109,6 +152,6 @@
             </tr>
             <% } %>
     </tbody>
-  </table>
+    </table>
 
-  <%- include('partials/footer') %>
+    <%- include('partials/footer') %>

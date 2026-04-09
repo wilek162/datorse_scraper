@@ -35,7 +35,7 @@
     </div>
   </section>
 
-  <!-- Per-source health view (auto-populated from dsc_view_source_health) -->
+  <!-- Per-source health view -->
   <% if (sourceHealth.length) { %>
     <h2>Source Health</h2>
     <table class="table">
@@ -85,18 +85,18 @@
                   <td><span class="badge badge-<%= e.status %>">
                       <%= e.status %>
                     </span></td>
-                  <td class="error">
+                  <td class="error" style="white-space:normal;max-width:480px">
                     <%= e.error_message ?? '–' %>
                   </td>
-                  <td><time>
-                      <%= new Date(e.started_at).toLocaleString('sv-SE') %>
-                    </time></td>
+                  <td title="<%= new Date(e.started_at).toLocaleString('sv-SE') %>">
+                    <%= timeAgo(e.started_at) %>
+                  </td>
                 </tr>
                 <% } %>
             </tbody>
           </table>
           <% } else { %>
-            <p class="hint">No errors or partial runs in the last 7 days.</p>
+            <p class="hint">No errors or partial runs in the last 7 days. ✓</p>
             <% } %>
 
               <!-- Best price sample -->

@@ -5,7 +5,7 @@
     <label>
       Source
       <select name="source">
-        <option value="">All</option>
+        <option value="">All sources</option>
         <% for (const s of sources) { %>
           <option value="<%= s.source_id %>" <%=filters.source===s.source_id ? 'selected' : '' %>>
             <%= s.source_id %>
@@ -16,18 +16,22 @@
     <label>
       Status
       <select name="status">
-        <option value="">All</option>
+        <option value="">All statuses</option>
         <% for (const st of ['ok', 'partial' , 'error' , 'running' ]) { %>
           <option value="<%= st %>" <%=filters.status===st ? 'selected' : '' %>><%= st %>
           </option>
           <% } %>
       </select>
     </label>
-    <button class="btn" type="submit">Filter</button>
-    <a class="btn" href="/logs">Reset</a>
+    <div class="filter-actions">
+      <button class="btn btn-primary" type="submit">Filter</button>
+      <a class="btn" href="/logs">Reset</a>
+    </div>
   </form>
 
-  <p class="hint">Showing page <%= page %> of <%= Math.ceil(total / pageSize) %> (<%= total %> total)</p>
+  <p class="hint">
+    <%= total %> total &mdash; page <%= page %> of <%= Math.max(1, Math.ceil(total / pageSize)) %>
+  </p>
 
   <table class="table">
     <thead>
@@ -49,9 +53,9 @@
       <% for (const log of logs) { %>
         <tr>
           <td><a href="/logs/<%= log.id %>">#<%= log.id %></a></td>
-          <td>
-            <%= log.source_id %>
-          </td>
+          <td><a href="/logs?source=<%= log.source_id %>&status=<%= filters.status %>">
+              <%= log.source_id %>
+            </a></td>
           <td><span class="badge badge-<%= log.status %>">
               <%= log.status %>
             </span></td>
@@ -76,9 +80,9 @@
           <td>
             <%= log.duration_s !=null ? log.duration_s + 's' : '…' %>
           </td>
-          <td><time>
-              <%= new Date(log.started_at).toLocaleString('sv-SE') %>
-            </time></td>
+          <td title="<%= new Date(log.started_at).toLocaleString('sv-SE') %>">
+            <%= timeAgo(log.started_at) %>
+          </td>
         </tr>
         <% } %>
           <% if (!logs.length) { %>
@@ -95,6 +99,7 @@
       <a class="btn btn-sm"
         href="/logs?page=<%= page - 1 %>&source=<%= filters.source %>&status=<%= filters.status %>">← Prev</a>
       <% } %>
+        <span class="pagination-info">Page <%= page %> / <%= Math.max(1, Math.ceil(total / pageSize)) %></span>
         <% if (page * pageSize < total) { %>
           <a class="btn btn-sm"
             href="/logs?page=<%= page + 1 %>&source=<%= filters.source %>&status=<%= filters.status %>">Next →</a>

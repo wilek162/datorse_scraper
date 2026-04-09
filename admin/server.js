@@ -22,11 +22,34 @@ app.set("view engine", "ejs");
 // ─── Auth on all routes ──────────────────────────────────────────────────────
 app.use(requireAuth);
 
+// ─── View locals helpers ─────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  // Current path for active nav link detection in templates
+  res.locals.currentPath = req.path;
+
+  // Human-readable relative time ("5m ago", "2h ago", "3d ago")
+  res.locals.timeAgo = (date) => {
+    if (!date) return "never";
+    const diff = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}d ago`;
+    return new Date(date).toLocaleDateString("sv-SE");
+  };
+
+  next();
+});
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 app.use("/", require("./routes/index"));
 app.use("/sources", require("./routes/sources"));
 app.use("/logs", require("./routes/logs"));
 app.use("/health", require("./routes/health"));
+app.use("/data", require("./routes/data"));
 
 // ─── Error handler ───────────────────────────────────────────────────────────
 app.use((err, req, res, _next) => {

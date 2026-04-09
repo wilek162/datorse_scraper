@@ -88,20 +88,36 @@ router.post("/:id/toggle", async (req, res, next) => {
 });
 
 // ─── POST /sources/:id/run ────────────────────────────────────────────────────
+// Accepts optional body fields: pageLimit (int), itemLimit (int), dryRun (bool)
 
 router.post("/:id/run", async (req, res, next) => {
   try {
     const source = findSource(req.params.id);
 
+    // Parse optional run overrides from body (sent by run-options form)
+    const pageLimit = req.body.pageLimit
+      ? Math.max(1, parseInt(req.body.pageLimit, 10))
+      : null;
+    const itemLimit = req.body.itemLimit
+      ? Math.max(1, parseInt(req.body.itemLimit, 10))
+      : null;
+    const dryRun = req.body.dryRun === "true" || req.body.dryRun === "1";
+
+    const extraArgs = [];
+    if (pageLimit && !Number.isNaN(pageLimit))
+      extraArgs.push("--pageLimit", String(pageLimit));
+    if (itemLimit && !Number.isNaN(itemLimit))
+      extraArgs.push("--itemLimit", String(itemLimit));
+    if (dryRun) extraArgs.push("--dryRun");
+
     const runScript = path.resolve(__dirname, "../../lib/run-source.js");
     // Fire and forget — the run writes its own scrape_log entry
     execFile(
       process.execPath,
-      [runScript, source.id],
+      [runScript, source.id, ...extraArgs],
       { cwd: path.resolve(__dirname, "../.."), timeout: 0 },
       (err) => {
         if (err) {
-          // Log but don't surface to the already-responded request
           const logger = require("../../lib/logger");
           logger.error(`Admin-triggered run failed: ${source.id}`, {
             err: err.message,
@@ -110,9 +126,16 @@ router.post("/:id/run", async (req, res, next) => {
       },
     );
 
+    // Build a label that reflects which overrides were applied
+    const optParts = [];
+    if (pageLimit) optParts.push(`${pageLimit}p`);
+    if (itemLimit) optParts.push(`${itemLimit}i`);
+    if (dryRun) optParts.push("dry");
+    const opts = optParts.length ? ` (${optParts.join(", ")})` : "";
+
     if (req.headers["hx-request"]) {
       res.send(
-        `<span class="badge badge-running">▶ Run queued for ${source.id}</span>`,
+        `<span class="run-feedback run-feedback--ok">✓ Queued${opts}</span>`,
       );
     } else {
       res.redirect("/sources");

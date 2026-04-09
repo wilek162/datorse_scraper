@@ -1,5 +1,12 @@
 <%- include('partials/header', { title }) %>
 
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb">
+    <a href="/logs">Logs</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>#<%= log.id %></span>
+  </nav>
+
   <section class="detail-meta">
     <dl class="kv-grid">
       <dt>Source</dt>
@@ -11,9 +18,12 @@
           <%= log.status %>
         </span></dd>
       <dt>Started</dt>
-      <dd><time>
+      <dd>
+        <time title="<%= new Date(log.started_at).toLocaleString('sv-SE') %>">
           <%= new Date(log.started_at).toLocaleString('sv-SE') %>
-        </time></dd>
+        </time>
+        &nbsp;<span style="color:var(--text-muted)">(<%= timeAgo(log.started_at) %>)</span>
+      </dd>
       <dt>Finished</dt>
       <dd>
         <% if (log.finished_at) { %>
@@ -42,8 +52,8 @@
       </dd>
       <% if (log.error_message) { %>
         <dt>Error</dt>
-        <dd class="error">
-          <%= log.error_message %>
+        <dd>
+          <pre class="error-pre"><%= log.error_message %></pre>
         </dd>
         <% } %>
     </dl>
@@ -69,9 +79,9 @@
           <td><span class="badge badge-<%= s.match_status %>">
               <%= s.match_status %>
             </span></td>
-          <td><time>
-              <%= new Date(s.scraped_at).toLocaleString('sv-SE') %>
-            </time></td>
+          <td title="<%= new Date(s.scraped_at).toLocaleString('sv-SE') %>">
+            <%= timeAgo(s.scraped_at) %>
+          </td>
         </tr>
         <% } %>
           <% if (!sources.length) { %>
@@ -82,6 +92,6 @@
     </tbody>
   </table>
 
-  <p><a class="btn" href="/logs">← Back to Logs</a></p>
+  <p style="margin-top:1.25rem"><a class="btn" href="/logs">← Back to Logs</a></p>
 
   <%- include('partials/footer') %>
