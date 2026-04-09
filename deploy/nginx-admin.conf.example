@@ -1,0 +1,59 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Nginx reverse-proxy config for Datorsc Admin Panel
+#
+# Place at: /etc/nginx/sites-available/datorsc-admin
+# Enable:   ln -s /etc/nginx/sites-available/datorsc-admin \
+#                  /etc/nginx/sites-enabled/datorsc-admin
+# Reload:   nginx -t && systemctl reload nginx
+#
+# The admin panel listens on localhost:3001 (ADMIN_PORT in .env).
+# Traffic is proxied from /scraper-admin/ on your WordPress domain.
+# Basic Auth is handled by the Node.js app itself (ADMIN_SECRET_KEY).
+# ──────────────────────────────────────────────────────────────────────────────
+
+server {
+    listen 443 ssl http2;
+    # Change to your actual WordPress domain:
+    server_name dator.se;
+
+    # --- TLS (Let's Encrypt / Certbot) ---------------------------------------
+    ssl_certificate     /etc/letsencrypt/live/dator.se/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dator.se/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
+    # --- Admin panel sub-path ------------------------------------------------
+    location /scraper-admin/ {
+        # Strip the /scraper-admin prefix before forwarding to Node.js
+        rewrite ^/scraper-admin/(.*)$ /$1 break;
+
+        proxy_pass         http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+
+        # Allow HTMX streaming responses (SSE future-proofing)
+        proxy_buffering    off;
+        proxy_read_timeout 120s;
+
+        # Deny access from outside the VPS subnet if you want extra hardening:
+        # allow  YOUR_OFFICE_IP/32;
+        # deny   all;
+    }
+
+    # --- All other traffic → WordPress (PHP-FPM) ----------------------------
+    location / {
+        # Assumes WordPress is already configured on this server block.
+        # Keep your existing WordPress location blocks here.
+        try_files $uri $uri/ /index.php?$args;
+    }
+}
+
+# Redirect HTTP → HTTPS
+server {
+    listen 80;
+    server_name dator.se;
+    return 301 https://$host$request_uri;
+}
