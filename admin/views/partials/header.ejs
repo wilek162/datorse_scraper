@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>
+    <%= title %> — Datorsc Admin
+  </title>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- HTMX: no build step, server-driven interactions -->
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+</head>
+
+<body>
+  <nav class="nav">
+    <a class="nav-brand" href="/">⚙ Datorsc Admin</a>
+    <ul class="nav-links">
+      <li><a href="/">Dashboard</a></li>
+      <li><a href="/sources">Sources</a></li>
+      <li><a href="/logs">Logs</a></li>
+      <li><a href="/health">Health</a></li>
+    </ul>
+  </nav>
+  <main class="container">
+    <h1>
+      <%= title %>
+    </h1>

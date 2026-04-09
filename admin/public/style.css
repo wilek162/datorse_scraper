@@ -1,0 +1,400 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Datorsc Admin Panel — Minimal utility CSS
+   Design goal: readable at a glance, no dependencies, easy to maintain.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --border: #dde1ea;
+  --text: #1a1d27;
+  --text-muted: #6b7280;
+  --accent: #4f46e5;
+  --radius: 6px;
+  --nav-h: 56px;
+
+  /* Status colours */
+  --ok: #16a34a;
+  --error: #dc2626;
+  --partial: #d97706;
+  --running: #2563eb;
+  --disabled: #9ca3af;
+  --paused: #7c3aed;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ── Nav ─────────────────────────────────────────────────────────────────── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0 1.5rem;
+  background: var(--text);
+  color: #fff;
+}
+
+.nav-brand {
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  color: #fff;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  margin-left: auto;
+}
+
+.nav-links a {
+  color: rgba(255, 255, 255, .8);
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  color: #fff;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+  margin: 1.75rem 0 .75rem;
+}
+
+.footer {
+  text-align: center;
+  padding: 1.25rem;
+  color: var(--text-muted);
+  font-size: .8rem;
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: .85rem;
+  margin-bottom: .75rem;
+}
+
+/* ── Stat cards ──────────────────────────────────────────────────────────── */
+.stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  flex: 1 1 140px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: .8rem;
+  color: var(--text-muted);
+}
+
+/* ── Source grid cards ───────────────────────────────────────────────────── */
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.source-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .875rem 1rem;
+  border-left: 4px solid var(--disabled);
+}
+
+.source-card--ok {
+  border-left-color: var(--ok);
+}
+
+.source-card--error {
+  border-left-color: var(--error);
+}
+
+.source-card--partial {
+  border-left-color: var(--partial);
+}
+
+.source-card--running {
+  border-left-color: var(--running);
+}
+
+.source-card-header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .3rem;
+}
+
+.source-card-meta {
+  font-size: .8rem;
+  color: var(--text-muted);
+  margin-bottom: .5rem;
+}
+
+.source-card-actions {
+  display: flex;
+  gap: .4rem;
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: .1em .55em;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 600;
+  background: var(--disabled);
+  color: #fff;
+}
+
+.badge-ok,
+.badge-matched {
+  background: var(--ok);
+}
+
+.badge-error {
+  background: var(--error);
+}
+
+.badge-partial {
+  background: var(--partial);
+}
+
+.badge-running {
+  background: var(--running);
+}
+
+.badge-disabled,
+.badge-skipped {
+  background: var(--disabled);
+}
+
+.badge-paused,
+.badge-unmatched {
+  background: var(--paused);
+}
+
+.badge-type {
+  background: var(--accent);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: .35rem .75rem;
+  font-size: .8rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .1s;
+}
+
+.btn:hover {
+  background: var(--bg);
+}
+
+.btn-sm {
+  padding: .2rem .55rem;
+  font-size: .75rem;
+}
+
+.btn-run {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-run:hover {
+  background: #eef2ff;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.table th,
+.table td {
+  padding: .5rem .75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table thead th {
+  background: var(--bg);
+  font-weight: 600;
+  font-size: .8rem;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover td {
+  background: #f9fafb;
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1.5rem !important;
+}
+
+.actions {
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+}
+
+/* ── Forms / filter bar ─────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: .75rem;
+  margin-bottom: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .75rem 1rem;
+}
+
+.filter-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  font-size: .8rem;
+  font-weight: 600;
+}
+
+.filter-bar select,
+.filter-bar input {
+  padding: .3rem .5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .85rem;
+}
+
+/* ── Detail view key-value grid ─────────────────────────────────────────── */
+.detail-meta {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: .4rem .75rem;
+}
+
+.kv-grid dt {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: .85rem;
+}
+
+.kv-grid dd {
+  font-size: .9rem;
+}
+
+/* ── Pagination ──────────────────────────────────────────────────────────── */
+.pagination {
+  display: flex;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+/* ── Error box ───────────────────────────────────────────────────────────── */
+.error {
+  color: var(--error);
+}
+
+.error-box {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  max-width: 480px;
+}
+
+/* ── HTMX loading spinner ────────────────────────────────────────────────── */
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: inline;
+}
+
+.spinner {
+  color: var(--text-muted);
+  font-size: .85rem;
+}
+
+/* ── Sources table — allow wrapping in actions cell ─────────────────────── */
+.sources-table .actions {
+  flex-wrap: wrap;
+}

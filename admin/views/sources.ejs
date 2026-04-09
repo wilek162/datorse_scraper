@@ -1,0 +1,33 @@
+<%- include('partials/header', { title }) %>
+
+  <p class="hint">
+    Sources are loaded from <code>config/sources.json</code> at request time.
+    Adding or removing a source there is immediately reflected here.
+  </p>
+
+  <table class="table sources-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Schedule</th>
+        <th>Enabled</th>
+        <th>Paused</th>
+        <th>Last Run</th>
+        <th>Last Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="sources-tbody">
+      <% for (const row of rows) { %>
+        <%- include('partials/source-row', { row }) %>
+          <% } %>
+            <% if (!rows.length) { %>
+              <tr>
+                <td colspan="8" class="empty">No sources configured.</td>
+              </tr>
+              <% } %>
+    </tbody>
+  </table>
+
+  <%- include('partials/footer') %>

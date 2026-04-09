@@ -1,0 +1,129 @@
+<%- include('partials/header', { title }) %>
+
+  <!-- DB counts -->
+  <h2>Database Counts</h2>
+  <section class="stats-bar">
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.products.toLocaleString() %>
+      </span>
+      <span class="stat-label">Products</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.prices.toLocaleString() %>
+      </span>
+      <span class="stat-label">Price rows</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.price_history.toLocaleString() %>
+      </span>
+      <span class="stat-label">Price history</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.matched_sources.toLocaleString() %>
+      </span>
+      <span class="stat-label">Matched sources</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.unmatched_sources.toLocaleString() %>
+      </span>
+      <span class="stat-label">Unmatched sources</span>
+    </div>
+  </section>
+
+  <!-- Per-source health view (auto-populated from dsc_view_source_health) -->
+  <% if (sourceHealth.length) { %>
+    <h2>Source Health</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <% for (const col of Object.keys(sourceHealth[0])) { %>
+            <th>
+              <%= col %>
+            </th>
+            <% } %>
+        </tr>
+      </thead>
+      <tbody>
+        <% for (const row of sourceHealth) { %>
+          <tr>
+            <% for (const val of Object.values(row)) { %>
+              <td>
+                <%= val ?? '–' %>
+              </td>
+              <% } %>
+          </tr>
+          <% } %>
+      </tbody>
+    </table>
+    <% } else { %>
+      <p class="hint"><code>dsc_view_source_health</code> not available in this DB schema version.</p>
+      <% } %>
+
+        <!-- Recent errors / partial runs -->
+        <h2>Recent Errors (7 days)</h2>
+        <% if (recentErrors.length) { %>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Error</th>
+                <th>Started</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% for (const e of recentErrors) { %>
+                <tr>
+                  <td><a href="/logs?source=<%= e.source_id %>">
+                      <%= e.source_id %>
+                    </a></td>
+                  <td><span class="badge badge-<%= e.status %>">
+                      <%= e.status %>
+                    </span></td>
+                  <td class="error">
+                    <%= e.error_message ?? '–' %>
+                  </td>
+                  <td><time>
+                      <%= new Date(e.started_at).toLocaleString('sv-SE') %>
+                    </time></td>
+                </tr>
+                <% } %>
+            </tbody>
+          </table>
+          <% } else { %>
+            <p class="hint">No errors or partial runs in the last 7 days.</p>
+            <% } %>
+
+              <!-- Best price sample -->
+              <% if (bestPrices.length) { %>
+                <h2>Best Price Sample (top 10)</h2>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <% for (const col of Object.keys(bestPrices[0])) { %>
+                        <th>
+                          <%= col %>
+                        </th>
+                        <% } %>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% for (const row of bestPrices) { %>
+                      <tr>
+                        <% for (const val of Object.values(row)) { %>
+                          <td>
+                            <%= val ?? '–' %>
+                          </td>
+                          <% } %>
+                      </tr>
+                      <% } %>
+                  </tbody>
+                </table>
+                <% } %>
+
+                  <%- include('partials/footer') %>

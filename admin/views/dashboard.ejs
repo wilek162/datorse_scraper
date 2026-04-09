@@ -1,0 +1,114 @@
+<%- include('partials/header', { title }) %>
+
+  <!-- Stats bar — auto-refreshes every 60 s via HTMX -->
+  <section class="stats-bar" hx-get="/" hx-select=".stats-bar" hx-swap="outerHTML" hx-trigger="every 60s">
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.total_products.toLocaleString() %>
+      </span>
+      <span class="stat-label">Products</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.total_prices.toLocaleString() %>
+      </span>
+      <span class="stat-label">Price rows</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= counts.runs_24h %>
+      </span>
+      <span class="stat-label">Runs (24 h)</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">
+        <%= sources.filter(s=> s.enabled).length %> / <%= sources.length %>
+      </span>
+      <span class="stat-label">Enabled sources</span>
+    </div>
+  </section>
+
+  <!-- Per-source quick-status grid (reads dsc_scrape_log) -->
+  <h2>Source Status</h2>
+  <div class="source-grid">
+    <% for (const s of sources) { const summary=sourceSummary.find(ss=> ss.source_id === s.id);
+      const paused = summary?.paused === 1;
+      const status = summary?.last_status ?? 'never';
+      %>
+      <div class="source-card source-card--<%= status %>">
+        <div class="source-card-header">
+          <strong>
+            <%= s.id %>
+          </strong>
+          <% if (!s.enabled) { %><span class="badge badge-disabled">disabled</span>
+            <% } %>
+              <% if (paused) { %><span class="badge badge-paused">paused</span>
+                <% } %>
+        </div>
+        <div class="source-card-meta">
+          <span class="badge badge-<%= status %>">
+            <%= status %>
+          </span>
+          <% if (summary?.last_run) { %>
+            &bull; <time>
+              <%= new Date(summary.last_run).toLocaleString('sv-SE') %>
+            </time>
+            <% } else { %>
+              &bull; never run
+              <% } %>
+        </div>
+        <div class="source-card-actions">
+          <a class="btn btn-sm" href="/sources">Manage</a>
+          <a class="btn btn-sm" href="/logs?source=<%= s.id %>">Logs</a>
+        </div>
+      </div>
+      <% } %>
+  </div>
+
+  <!-- Recent log table -->
+  <h2>Recent Runs</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Source</th>
+        <th>Status</th>
+        <th>Found</th>
+        <th>Upserted</th>
+        <th>Duration</th>
+        <th>Started</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const log of recentLogs) { %>
+        <tr>
+          <td><a href="/logs/<%= log.id %>">#<%= log.id %></a></td>
+          <td>
+            <%= log.source_id %>
+          </td>
+          <td><span class="badge badge-<%= log.status %>">
+              <%= log.status %>
+            </span></td>
+          <td>
+            <%= log.records_found ?? '–' %>
+          </td>
+          <td>
+            <%= log.records_upserted ?? '–' %>
+          </td>
+          <td>
+            <%= log.duration_s !=null ? log.duration_s + 's' : '…' %>
+          </td>
+          <td><time>
+              <%= new Date(log.started_at).toLocaleString('sv-SE') %>
+            </time></td>
+        </tr>
+        <% } %>
+          <% if (!recentLogs.length) { %>
+            <tr>
+              <td colspan="7" class="empty">No runs yet.</td>
+            </tr>
+            <% } %>
+    </tbody>
+  </table>
+
+  <%- include('partials/footer') %>

@@ -1,0 +1,87 @@
+<%- include('partials/header', { title }) %>
+
+  <section class="detail-meta">
+    <dl class="kv-grid">
+      <dt>Source</dt>
+      <dd><a href="/logs?source=<%= log.source_id %>">
+          <%= log.source_id %>
+        </a></dd>
+      <dt>Status</dt>
+      <dd><span class="badge badge-<%= log.status %>">
+          <%= log.status %>
+        </span></dd>
+      <dt>Started</dt>
+      <dd><time>
+          <%= new Date(log.started_at).toLocaleString('sv-SE') %>
+        </time></dd>
+      <dt>Finished</dt>
+      <dd>
+        <% if (log.finished_at) { %>
+          <time>
+            <%= new Date(log.finished_at).toLocaleString('sv-SE') %>
+          </time>
+          <% } else { %>
+            <em>still running</em>
+            <% } %>
+      </dd>
+      <dt>Records found / valid / upserted</dt>
+      <dd>
+        <%= log.records_found ?? '?' %> / <%= log.records_valid ?? '?' %> / <%= log.records_upserted ?? '?' %>
+      </dd>
+      <dt>Proxy credits used</dt>
+      <dd>
+        <%= log.proxy_credits_used ?? '–' %>
+      </dd>
+      <dt>Proxy cost</dt>
+      <dd>
+        <%= log.proxy_cost_usd !=null ? '$' + Number(log.proxy_cost_usd).toFixed(4) : '–' %>
+      </dd>
+      <dt>Pages fetched</dt>
+      <dd>
+        <%= log.pages_fetched ?? '–' %>
+      </dd>
+      <% if (log.error_message) { %>
+        <dt>Error</dt>
+        <dd class="error">
+          <%= log.error_message %>
+        </dd>
+        <% } %>
+    </dl>
+  </section>
+
+  <h2>Product Sources (<%= sources.length %> rows)</h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>External ID</th>
+        <th>EAN</th>
+        <th>Match status</th>
+        <th>Scraped at</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const s of sources) { %>
+        <tr>
+          <td><code><%= s.external_id %></code></td>
+          <td>
+            <%= s.ean ?? '–' %>
+          </td>
+          <td><span class="badge badge-<%= s.match_status %>">
+              <%= s.match_status %>
+            </span></td>
+          <td><time>
+              <%= new Date(s.scraped_at).toLocaleString('sv-SE') %>
+            </time></td>
+        </tr>
+        <% } %>
+          <% if (!sources.length) { %>
+            <tr>
+              <td colspan="4" class="empty">No product source rows for this log entry.</td>
+            </tr>
+            <% } %>
+    </tbody>
+  </table>
+
+  <p><a class="btn" href="/logs">← Back to Logs</a></p>
+
+  <%- include('partials/footer') %>
