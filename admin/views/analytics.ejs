@@ -1,0 +1,164 @@
+<%- include('partials/header', { title }) %>
+
+<p class="hint">Overview of scraped data quality, source performance, and price distribution.</p>
+
+<!-- Summary stats -->
+<section class="stats-bar">
+  <div class="stat-card">
+    <span class="stat-value"><%= stats.totalProducts.toLocaleString() %></span>
+    <span class="stat-label">Total Products</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value"><%= stats.productsWithEan.toLocaleString() %></span>
+    <span class="stat-label">With EAN</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value"><%= stats.productsWithPrice.toLocaleString() %></span>
+    <span class="stat-label">With Price</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value"><%= stats.avgOffersPerProduct.toFixed(1) %></span>
+    <span class="stat-label">Avg Offers/Product</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value"><%= stats.unmatchedSources.toLocaleString() %></span>
+    <span class="stat-label">Unmatched Sources</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value"><%= stats.totalRuns7d %></span>
+    <span class="stat-label">Runs (7 days)</span>
+  </div>
+</section>
+
+<!-- Price distribution -->
+<h2>Price Distribution (SEK)</h2>
+<table class="table" style="max-width:500px; margin-bottom:1.5rem">
+  <thead><tr><th>Range (SEK)</th><th>Products</th><th>Bar</th></tr></thead>
+  <tbody>
+    <% for (const bucket of priceBuckets) { %>
+    <tr>
+      <td><%= bucket.label %></td>
+      <td><%= bucket.count.toLocaleString() %></td>
+      <td>
+        <div style="
+          height:10px;
+          width:<%= Math.min(100, Math.round(bucket.count / Math.max(1, priceBuckets[0].count) * 100)) %>%;
+          min-width:2px;
+          background:var(--accent);
+          border-radius:2px;
+          opacity:.7;
+        "></div>
+      </td>
+    </tr>
+    <% } %>
+  </tbody>
+</table>
+
+<!-- Source performance -->
+<h2>Source Run Performance (last 30 days)</h2>
+<table class="table" style="margin-bottom:1.5rem">
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Total Runs</th>
+      <th>OK</th>
+      <th>Partial</th>
+      <th>Failed</th>
+      <th>Avg Records/Run</th>
+      <th>Avg Duration</th>
+      <th>Total Credits</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% for (const s of sourcePerf) { %>
+    <tr>
+      <td><a href="/logs?source=<%= s.source_id %>"><strong><%= s.source_id %></strong></a></td>
+      <td><%= s.total_runs %></td>
+      <td><span class="badge badge-ok"><%= s.ok_runs %></span></td>
+      <td><span class="badge badge-partial"><%= s.partial_runs %></span></td>
+      <td><span class="badge badge-error"><%= s.failed_runs %></span></td>
+      <td><%= Math.round(s.avg_records_found) %></td>
+      <td><%= s.avg_duration_s ? Math.round(s.avg_duration_s) + 's' : '–' %></td>
+      <td><%= s.total_credits ?? '–' %></td>
+    </tr>
+    <% } %>
+    <% if (!sourcePerf.length) { %>
+    <tr><td colspan="8" class="empty">No run data in the last 30 days.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<!-- Retailer coverage -->
+<h2>Retailer Coverage</h2>
+<table class="table" style="max-width:600px; margin-bottom:1.5rem">
+  <thead>
+    <tr>
+      <th>Retailer</th>
+      <th>Products</th>
+      <th>In Stock</th>
+      <th>Avg Price (SEK)</th>
+      <th>Min Price (SEK)</th>
+      <th>Last Updated</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% for (const r of retailerStats) { %>
+    <tr>
+      <td><strong><%= r.retailer %></strong></td>
+      <td><%= r.product_count.toLocaleString() %></td>
+      <td>
+        <span class="badge badge-ok"><%= r.in_stock_count %></span>
+        <% if (r.out_of_stock > 0) { %>
+        <span class="badge badge-error"><%= r.out_of_stock %> OOS</span>
+        <% } %>
+      </td>
+      <td><%= r.avg_price ? Number(r.avg_price).toLocaleString('sv-SE', {maximumFractionDigits:0}) : '–' %></td>
+      <td><%= r.min_price ? Number(r.min_price).toLocaleString('sv-SE', {maximumFractionDigits:0}) : '–' %></td>
+      <td title="<%= r.last_scraped ? new Date(r.last_scraped).toLocaleString('sv-SE') : '' %>">
+        <%= r.last_scraped ? timeAgo(r.last_scraped) : '–' %>
+      </td>
+    </tr>
+    <% } %>
+    <% if (!retailerStats.length) { %>
+    <tr><td colspan="6" class="empty">No price data yet.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<!-- Match status breakdown -->
+<h2>Source Match Status Breakdown</h2>
+<table class="table" style="max-width:600px">
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Matched</th>
+      <th>Unmatched</th>
+      <th>Ambiguous</th>
+      <th>Skipped</th>
+      <th>Match Rate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% for (const m of matchStats) { %>
+    <tr>
+      <td><a href="/logs?source=<%= m.source_id %>"><strong><%= m.source_id %></strong></a></td>
+      <td><span class="badge badge-ok"><%= m.matched %></span></td>
+      <td><span class="badge badge-paused"><%= m.unmatched %></span></td>
+      <td><span class="badge badge-partial"><%= m.ambiguous %></span></td>
+      <td><span class="badge badge-disabled"><%= m.skipped %></span></td>
+      <td>
+        <% const total = m.matched + m.unmatched + m.ambiguous + m.skipped; %>
+        <% const rate = total > 0 ? Math.round(m.matched / total * 100) : 0; %>
+        <span style="font-weight:700;color:<%= rate >= 80 ? 'var(--ok)' : rate >= 50 ? 'var(--partial)' : 'var(--error)' %>">
+          <%= rate %>%
+        </span>
+      </td>
+    </tr>
+    <% } %>
+    <% if (!matchStats.length) { %>
+    <tr><td colspan="6" class="empty">No source data available.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<%- include('partials/footer') %>

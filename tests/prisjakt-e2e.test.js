@@ -2,6 +2,14 @@
 
 require("dotenv").config();
 
+const PRODUCTION_DB = "datorsc";
+if (process.env.DB_NAME === PRODUCTION_DB) {
+  throw new Error(
+    `E2E tests must not run against production DB '${PRODUCTION_DB}'. ` +
+      `Set DB_NAME to a test database or unset DB_NAME to skip.`,
+  );
+}
+
 const nock = require("nock");
 
 const hasDbConfig = Boolean(process.env.DB_USER && process.env.DB_PASSWORD);
@@ -144,6 +152,18 @@ async function cleanupRecords(db, { sourceId, ean }) {
       activeContext = null;
     }
     await db.closePool();
+  });
+
+  afterAll(async () => {
+    try {
+      const staleSources = await db.query(
+        "SELECT DISTINCT source_id FROM dsc_product_sources WHERE source_id LIKE 'prisjakt_e2e_%'",
+      );
+      for (const { source_id } of staleSources) {
+        await cleanupRecords(db, { sourceId: source_id, ean: null });
+      }
+    } catch (_) {}
+    try { await db.closePool(); } catch (_) {}
   });
 
   test("runner writes scrape log metrics, audit rows, and one valid price record", async () => {

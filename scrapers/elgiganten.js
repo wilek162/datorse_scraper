@@ -146,6 +146,7 @@ async function run(sourceConfig, ctx = {}) {
           err: err.message,
         });
         if (err instanceof ProxyFatalError) throw err;
+        ctx.lastError = err.message;
         break;
       }
 
