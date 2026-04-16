@@ -1,6 +1,3 @@
-// config/sources.json
-// Controls scheduling frequency and proxy tier for each data source.
-// Set "enabled": false on expensive sources (komplett, elgiganten) during dev.
 [
   {
     "id": "amazon_se",
@@ -14,7 +11,7 @@
     "id": "awin",
     "type": "feed",
     "module": "feeds/awin.js",
-    "enabled": true,
+    "enabled": false,
     "schedule": "30 2 * * *",
     "comment": "Awin product feed — daily at 02:30"
   },
@@ -22,7 +19,7 @@
     "id": "adtraction",
     "type": "feed",
     "module": "feeds/adtraction.js",
-    "enabled": true,
+    "enabled": false,
     "schedule": "0 3 * * *",
     "comment": "Adtraction CSV feed — daily at 03:00"
   },
@@ -30,7 +27,7 @@
     "id": "webhallen",
     "type": "scraper",
     "module": "scrapers/webhallen.js",
-    "enabled": true,
+    "enabled": false,
     "schedule": "0 */6 * * *",
     "proxyTier": "standard",
     "renderJs": false,
@@ -66,7 +63,7 @@
     "id": "inet",
     "type": "scraper",
     "module": "scrapers/inet.js",
-    "enabled": true,
+    "enabled": false,
     "schedule": "20 */4 * * *",
     "proxyTier": "standard",
     "renderJs": true,
@@ -103,7 +100,7 @@
     "id": "elgiganten",
     "type": "scraper",
     "module": "scrapers/elgiganten.js",
-    "enabled": false,
+    "enabled": true,
     "schedule": "40 */6 * * *",
     "proxyTier": "asp",
     "renderJs": true,
