@@ -1,0 +1,2 @@
+run: "pm2 restart datorsc-admin
+pm2 restart datorsc-scraper" to restart the datorsc-admin and datorsc-scraper processes using PM2 when you have made changes to the code or want to refresh the application. This command will ensure that the latest changes are applied and the application is running smoothly.

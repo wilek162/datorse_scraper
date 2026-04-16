@@ -9,10 +9,21 @@
   "scripts": {
     "start": "node lib/scheduler.js",
     "dev": "node --watch lib/scheduler.js",
+    "admin": "node admin/server.js",
+    "admin:dev": "node --watch admin/server.js",
     "migrate": "node migrations/run.js",
-    "test": "jest --runInBand",
+    "db:add-partitions": "node scripts/add-partition.js",
+    "db:smoke": "node tests/db-smoke.js",
+    "test": "jest --runInBand --passWithNoTests",
+    "test:integration": "jest --runInBand tests/db-integration.test.js tests/prisjakt-e2e.test.js",
+    "test:e2e": "jest --runInBand tests/prisjakt-e2e.test.js",
+    "test:full": "npm run lint && npm test",
     "test:watch": "jest --watch",
     "run:source": "node lib/run-source.js",
+    "run:prisjakt": "node lib/run-source.js prisjakt",
+    "run:prisjakt:smoke": "node lib/run-source.js prisjakt --pageLimit 1 --itemLimit 5",
+    "run:webhallen": "node lib/run-source.js webhallen",
+    "run:webhallen:smoke": "node lib/run-source.js webhallen --pageLimit 1 --itemLimit 5",
     "lint": "eslint \"{lib,feeds,scrapers,migrations,tests}/**/*.js\""
   },
   "dependencies": {
@@ -20,16 +31,19 @@
     "cheerio": "^1.0.0",
     "csv-parse": "^5.6.0",
     "dotenv": "^16.4.7",
-    "fast-xml-parser": "^4.5.1",
+    "ejs": "^3.1.10",
+    "express": "^4.22.1",
+    "fast-xml-parser": "^5.5.10",
     "mysql2": "^3.12.0",
     "node-cron": "^3.0.3",
+    "p-limit": "^3.1.0",
+    "p-retry": "^4.6.2",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "zod": "^3.24.1",
-    "p-limit": "^5.0.0",
-    "p-retry": "^6.2.1"
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
     "jest": "^29.7.0",
     "nock": "^14.0.3"
   }

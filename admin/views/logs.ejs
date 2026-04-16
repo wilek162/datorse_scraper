@@ -1,0 +1,109 @@
+<%- include('partials/header', { title }) %>
+
+  <!-- Filter bar -->
+  <form class="filter-bar" method="get" action="/logs">
+    <label>
+      Source
+      <select name="source">
+        <option value="">All sources</option>
+        <% for (const s of sources) { %>
+          <option value="<%= s.source_id %>" <%=filters.source===s.source_id ? 'selected' : '' %>>
+            <%= s.source_id %>
+          </option>
+          <% } %>
+      </select>
+    </label>
+    <label>
+      Status
+      <select name="status">
+        <option value="">All statuses</option>
+        <% for (const st of ['ok', 'partial' , 'error' , 'running' ]) { %>
+          <option value="<%= st %>" <%=filters.status===st ? 'selected' : '' %>><%= st %>
+          </option>
+          <% } %>
+      </select>
+    </label>
+    <div class="filter-actions">
+      <button class="btn btn-primary" type="submit">Filter</button>
+      <a class="btn" href="/logs">Reset</a>
+    </div>
+  </form>
+
+  <p class="hint">
+    <%= total %> total &mdash; page <%= page %> of <%= Math.max(1, Math.ceil(total / pageSize)) %>
+  </p>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Source</th>
+        <th>Status</th>
+        <th>Found</th>
+        <th>Valid</th>
+        <th>Upserted</th>
+        <th>Credits</th>
+        <th>Cost $</th>
+        <th>Pages</th>
+        <th>Duration</th>
+        <th>Started</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% for (const log of logs) { %>
+        <tr>
+          <td><a href="/logs/<%= log.id %>">#<%= log.id %></a></td>
+          <td><a href="/logs?source=<%= log.source_id %>&status=<%= filters.status %>">
+              <%= log.source_id %>
+            </a></td>
+          <td><span class="badge badge-<%= log.status %>">
+              <%= log.status %>
+            </span></td>
+          <td>
+            <%= log.records_found ?? '–' %>
+          </td>
+          <td>
+            <%= log.records_valid ?? '–' %>
+          </td>
+          <td>
+            <%= log.records_upserted ?? '–' %>
+          </td>
+          <td>
+            <%= log.proxy_credits_used ?? '–' %>
+          </td>
+          <td>
+            <%= log.proxy_cost_usd !=null ? '$' + Number(log.proxy_cost_usd).toFixed(4) : '–' %>
+          </td>
+          <td>
+            <%= log.pages_fetched ?? '–' %>
+          </td>
+          <td>
+            <%= log.duration_s !=null ? log.duration_s + 's' : '…' %>
+          </td>
+          <td title="<%= new Date(log.started_at).toLocaleString('sv-SE') %>">
+            <%= timeAgo(log.started_at) %>
+          </td>
+        </tr>
+        <% } %>
+          <% if (!logs.length) { %>
+            <tr>
+              <td colspan="11" class="empty">No log entries match the current filter.</td>
+            </tr>
+            <% } %>
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  <nav class="pagination">
+    <% if (page> 1) { %>
+      <a class="btn btn-sm"
+        href="/logs?page=<%= page - 1 %>&source=<%= filters.source %>&status=<%= filters.status %>">← Prev</a>
+      <% } %>
+        <span class="pagination-info">Page <%= page %> / <%= Math.max(1, Math.ceil(total / pageSize)) %></span>
+        <% if (page * pageSize < total) { %>
+          <a class="btn btn-sm"
+            href="/logs?page=<%= page + 1 %>&source=<%= filters.source %>&status=<%= filters.status %>">Next →</a>
+          <% } %>
+  </nav>
+
+  <%- include('partials/footer') %>

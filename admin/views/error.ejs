@@ -1,0 +1,12 @@
+<%- include('partials/header', { title: 'Error ' + status }) %>
+
+  <div class="error-box">
+    <h2>HTTP <%= status %>
+    </h2>
+    <p>
+      <%= message %>
+    </p>
+    <a class="btn" href="/">← Dashboard</a>
+  </div>
+
+  <%- include('partials/footer') %>

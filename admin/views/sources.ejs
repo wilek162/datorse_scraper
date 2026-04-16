@@ -1,0 +1,61 @@
+<%- include('partials/header', { title }) %>
+
+  <p class="hint">Sources are loaded from <code>config/sources.json</code> at request time. Changes are reflected
+    immediately.</p>
+
+  <!-- Summary strip -->
+  <% const okCount=rows.filter(r=> r.lastRun?.status === 'ok' && !r.paused).length;
+    const errorCount = rows.filter(r => r.lastRun?.status === 'error').length;
+    const partialCount = rows.filter(r => r.lastRun?.status === 'partial').length;
+    const pausedCount = rows.filter(r => r.paused).length;
+    const neverCount = rows.filter(r => !r.lastRun).length;
+    %>
+    <div class="summary-strip">
+      <% if (okCount) { %><span class="summary-pill summary-pill--ok">
+          <%= okCount %> ok
+        </span>
+        <% } %>
+          <% if (errorCount) { %><span class="summary-pill summary-pill--error">
+              <%= errorCount %> error
+            </span>
+            <% } %>
+              <% if (partialCount) { %><span class="summary-pill summary-pill--partial">
+                  <%= partialCount %> partial
+                </span>
+                <% } %>
+                  <% if (pausedCount) { %><span class="summary-pill summary-pill--paused">
+                      <%= pausedCount %> paused
+                    </span>
+                    <% } %>
+                      <% if (neverCount) { %><span class="summary-pill summary-pill--disabled">
+                          <%= neverCount %> never run
+                        </span>
+                        <% } %>
+    </div>
+
+    <table class="table sources-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>Schedule</th>
+          <th>Enabled</th>
+          <th>Paused</th>
+          <th>Last Run</th>
+          <th>Last Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="sources-tbody">
+        <% for (const row of rows) { %>
+          <%- include('partials/source-row', { row }) %>
+            <% } %>
+              <% if (!rows.length) { %>
+                <tr>
+                  <td colspan="8" class="empty">No sources configured.</td>
+                </tr>
+                <% } %>
+      </tbody>
+    </table>
+
+    <%- include('partials/footer') %>

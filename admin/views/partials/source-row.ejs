@@ -1,0 +1,73 @@
+<!-- Partial: a single <tr> for one source. Used by sources.ejs and HTMX swap. -->
+<tr id="source-row-<%= row.id %>">
+  <td><strong>
+      <%= row.id %>
+    </strong></td>
+  <td><span class="badge badge-type">
+      <%= row.type %>
+    </span></td>
+  <td><code><%= row.schedule %></code></td>
+  <td><span class="badge <%= row.enabled ? 'badge-ok' : 'badge-disabled' %>">
+      <%= row.enabled ? 'yes' : 'no' %>
+    </span></td>
+  <td><span class="badge <%= row.paused ? 'badge-paused' : 'badge-ok' %>">
+      <%= row.paused ? 'paused' : 'active' %>
+    </span></td>
+  <td>
+    <% if (row.lastRun) { %>
+      <span title="<%= new Date(row.lastRun.started_at).toLocaleString('sv-SE') %>">
+        <%= timeAgo(row.lastRun.started_at) %>
+      </span>
+      <% } else { %>
+        <em style="color:var(--text-muted)">never</em>
+        <% } %>
+  </td>
+  <td>
+    <% if (row.lastRun) { %>
+      <span class="badge badge-<%= row.lastRun.status %>">
+        <%= row.lastRun.status %>
+      </span>
+      <% } else { %>
+        <span class="badge badge-disabled">—</span>
+        <% } %>
+  </td>
+  <td class="actions" style="vertical-align:top">
+    <!-- Pause / Resume -->
+    <button class="btn btn-sm <%= row.paused ? 'btn-resume' : 'btn-pause' %>" hx-post="/sources/<%= row.id %>/toggle"
+      hx-target="#source-row-<%= row.id %>" hx-swap="outerHTML"
+      hx-confirm="<%= row.paused ? 'Resume' : 'Pause' %> source <%= row.id %>?">
+      <%= row.paused ? '▶ Resume' : '⏸ Pause' %>
+    </button>
+
+    <!-- Quick run (no options) -->
+    <button class="btn btn-sm btn-run" hx-post="/sources/<%= row.id %>/run" hx-target="#run-result-<%= row.id %>"
+      hx-swap="innerHTML" hx-indicator="#run-spinner-<%= row.id %>">
+      ▶ Run now
+    </button>
+
+    <!-- Run with options — inline collapsible form -->
+    <details class="run-options" id="run-options-<%= row.id %>">
+      <summary class="btn btn-sm" title="Run with custom limits">⚙ Options</summary>
+      <form class="run-options-form" hx-post="/sources/<%= row.id %>/run" hx-target="#run-result-<%= row.id %>"
+        hx-swap="innerHTML" hx-indicator="#run-spinner-<%= row.id %>"
+        hx-on::after-request="this.closest('details').removeAttribute('open')">
+        <label class="run-opt-label">Pages
+          <input class="run-opt-input" type="number" name="pageLimit" min="1" max="999" placeholder="all">
+        </label>
+        <label class="run-opt-label">Items
+          <input class="run-opt-input" type="number" name="itemLimit" min="1" max="9999" placeholder="all">
+        </label>
+        <label class="run-opt-label run-opt-check">
+          <input type="checkbox" name="dryRun" value="true">
+          Dry run
+        </label>
+        <button class="btn btn-sm btn-run" type="submit">▶ Run</button>
+      </form>
+    </details>
+
+    <span class="htmx-indicator spinner" id="run-spinner-<%= row.id %>">running…</span>
+    <span id="run-result-<%= row.id %>"></span>
+
+    <a class="btn btn-sm" href="/logs?source=<%= row.id %>">Logs</a>
+  </td>
+</tr>
