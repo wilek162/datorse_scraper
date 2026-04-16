@@ -18,6 +18,7 @@ const {
   isItemLimitReached,
   takeRemaining,
 } = require("../lib/source-controls");
+const { ProxyFatalError } = require("../lib/proxy");
 
 const RETAILER = "webhallen";
 const BASE_URL = "https://www.webhallen.com";
@@ -280,12 +281,14 @@ function extractNextPageUrl($, currentUrl) {
  * @param {object} sourceConfig - Entry from sources.json
  * @returns {Promise<object[]>} - Raw records (not yet validated)
  */
-async function run(sourceConfig) {
+async function run(sourceConfig, ctx = {}) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(4); // concurrent product page enrichment
   const pageLimit = getPageLimit(sourceConfig, 5);
   const itemLimit = getItemLimit(sourceConfig);
-  const allRecords = [];
+  const allRecords = []; // fallback only — populated when ctx.flush is absent or fails
+  let totalFlushed = 0; // records successfully committed to DB via ctx.flush
+  const currentTotal = () => allRecords.length + totalFlushed;
 
   const seedUrls = Array.isArray(sourceConfig.startUrls)
     ? sourceConfig.startUrls.filter(Boolean)
@@ -302,7 +305,7 @@ async function run(sourceConfig) {
     while (
       pageUrl &&
       pageCount < pageLimit &&
-      !isItemLimitReached(allRecords.length, itemLimit)
+      !isItemLimitReached(currentTotal(), itemLimit)
     ) {
       pageCount++;
       log.info("Scraping listing page", { url: pageUrl, page: pageCount });
@@ -315,6 +318,7 @@ async function run(sourceConfig) {
           url: pageUrl,
           err: err.message,
         });
+        if (err instanceof ProxyFatalError) throw err;
         break;
       }
 
@@ -327,7 +331,7 @@ async function run(sourceConfig) {
         const rawProducts = extractFromNextData(nextData);
         products = takeRemaining(
           rawProducts.map((p) => mapNextDataProduct(p)).filter(Boolean),
-          allRecords.length,
+          currentTotal(),
           itemLimit,
         );
         if (products.length > 0)
@@ -386,7 +390,7 @@ async function run(sourceConfig) {
       if (products.length === 0) {
         products = takeRemaining(
           parseListingViaSelectors($, log),
-          allRecords.length,
+          currentTotal(),
           itemLimit,
         );
         log.debug("Extracted via CSS selectors", { count: products.length });
@@ -410,15 +414,26 @@ async function run(sourceConfig) {
         );
       }
 
-      // Strip internal _productUrl before returning
+      // Strip internal _productUrl before flushing/returning
       const clean = products.map(({ _productUrl: _, ...rest }) => rest);
-      allRecords.push(...clean);
+      if (clean.length > 0) {
+        const flushed = ctx.flush ? await ctx.flush(clean) : false;
+        if (flushed) {
+          totalFlushed += clean.length;
+        } else {
+          allRecords.push(...clean);
+        }
+      }
 
       pageUrl = extractNextPageUrl($, pageUrl);
     }
   }
 
-  log.info(`Webhallen run complete`, { totalRecords: allRecords.length });
+  log.info(`Webhallen run complete`, {
+    totalRecords: currentTotal(),
+    flushed: totalFlushed,
+    inMemory: allRecords.length,
+  });
   return allRecords;
 }
 

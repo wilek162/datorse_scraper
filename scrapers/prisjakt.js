@@ -18,6 +18,7 @@ const {
   isItemLimitReached,
   takeRemaining,
 } = require("../lib/source-controls");
+const { ProxyFatalError } = require("../lib/proxy");
 
 const MERCHANT_ALIASES = require(
   path.resolve(__dirname, "../config/merchant-aliases.json"),
@@ -221,6 +222,7 @@ async function parseProductPage(productUrl, sourceConfig, log) {
     // renderJs required to load the dynamic .pj-ui-price-row components
     html = await proxy.fetch(productUrl, { ...sourceConfig, renderJs: true });
   } catch (err) {
+    if (err instanceof ProxyFatalError) throw err;
     log.debug("Failed to fetch Prisjakt product page", {
       url: productUrl,
       err: err.message,
@@ -375,12 +377,14 @@ function extractNextPageUrl($, currentUrl) {
 /**
  * Entry point called by lib/runner.js
  */
-async function run(sourceConfig) {
+async function run(sourceConfig, ctx = {}) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(3); // max concurrent product page fetches
   const pageLimit = getPageLimit(sourceConfig, 3);
   const itemLimit = getItemLimit(sourceConfig);
-  const allRecords = [];
+  const allRecords = []; // fallback only — populated when ctx.flush is absent or fails
+  let totalFlushed = 0; // records successfully committed to DB via ctx.flush
+  const currentTotal = () => allRecords.length + totalFlushed;
 
   const seedUrls = Array.isArray(sourceConfig.startUrls)
     ? sourceConfig.startUrls.filter(Boolean)
@@ -397,7 +401,7 @@ async function run(sourceConfig) {
     while (
       pageUrl &&
       pageCount < pageLimit &&
-      !isItemLimitReached(allRecords.length, itemLimit)
+      !isItemLimitReached(currentTotal(), itemLimit)
     ) {
       pageCount++;
       log.info("Scraping Prisjakt listing", { url: pageUrl, page: pageCount });
@@ -410,6 +414,7 @@ async function run(sourceConfig) {
           url: pageUrl,
           err: err.message,
         });
+        if (err instanceof ProxyFatalError) throw err;
         break;
       }
 
@@ -420,10 +425,11 @@ async function run(sourceConfig) {
       const rawProducts = extractFromNextData(nextData);
       const products = takeRemaining(
         rawProducts.map(mapNextDataProduct).filter(Boolean),
-        allRecords.length,
+        currentTotal(),
         itemLimit,
       );
 
+      let flatRecords;
       if (products.length > 0) {
         log.debug("Got products from __NEXT_DATA__", {
           count: products.length,
@@ -435,17 +441,16 @@ async function run(sourceConfig) {
             limit(() => parseProductPage(p._productUrl, sourceConfig, log)),
           ),
         );
-        const flatRecords = batches.flat();
+        flatRecords = batches.flat();
         log.debug("Prisjakt offer records from NEXT_DATA batch", {
           products: products.length,
           merchantOffers: flatRecords.length,
         });
-        allRecords.push(...flatRecords);
       } else {
         // ── Strategy 2: Collect product links, fetch each product page ──
         const productLinks = takeRemaining(
           extractProductLinks($),
-          allRecords.length,
+          currentTotal(),
           // Divide itemLimit by ~5 since each product yields ~5 records
           itemLimit ? Math.ceil(itemLimit / 5) : itemLimit,
         );
@@ -458,12 +463,20 @@ async function run(sourceConfig) {
             limit(() => parseProductPage(url, sourceConfig, log)),
           ),
         );
-        const flatRecords = batches.flat();
+        flatRecords = batches.flat();
         log.debug("Prisjakt offer records from link batch", {
           links: productLinks.length,
           merchantOffers: flatRecords.length,
         });
-        allRecords.push(...flatRecords);
+      }
+
+      if (flatRecords.length > 0) {
+        const flushed = ctx.flush ? await ctx.flush(flatRecords) : false;
+        if (flushed) {
+          totalFlushed += flatRecords.length;
+        } else {
+          allRecords.push(...flatRecords);
+        }
       }
 
       pageUrl = extractNextPageUrl($, pageUrl);
@@ -474,7 +487,9 @@ async function run(sourceConfig) {
     allRecords.map((r) => r.external_id).filter(Boolean),
   ).size;
   log.info("Prisjakt run complete", {
-    totalRecords: allRecords.length,
+    totalRecords: currentTotal(),
+    flushed: totalFlushed,
+    inMemory: allRecords.length,
     uniqueProducts,
   });
   return allRecords;

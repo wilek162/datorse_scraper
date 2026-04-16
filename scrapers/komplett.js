@@ -10,6 +10,7 @@ const {
   isItemLimitReached,
   takeRemaining,
 } = require("../lib/source-controls");
+const { ProxyFatalError } = require("../lib/proxy");
 
 // Komplett.se is Cloudflare-protected.
 // Strategy: Zyte AI extraction — no CSS selectors needed.
@@ -83,12 +84,14 @@ function zyteProductToRecord(zyteProduct, productUrl) {
 /**
  * Entry point called by lib/runner.js
  */
-async function run(sourceConfig) {
+async function run(sourceConfig, ctx = {}) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(6); // Zyte concurrency — stay within reqPerMin
   const pageLimit = getPageLimit(sourceConfig, 5);
   const itemLimit = getItemLimit(sourceConfig);
-  const allRecords = [];
+  const allRecords = []; // fallback only — populated when ctx.flush is absent or fails
+  let totalFlushed = 0; // records successfully committed to DB via ctx.flush
+  const currentTotal = () => allRecords.length + totalFlushed;
 
   const seedUrls = Array.isArray(sourceConfig.startUrls)
     ? sourceConfig.startUrls.filter(Boolean)
@@ -105,7 +108,7 @@ async function run(sourceConfig) {
     while (
       pageUrl &&
       pageCount < pageLimit &&
-      !isItemLimitReached(allRecords.length, itemLimit)
+      !isItemLimitReached(currentTotal(), itemLimit)
     ) {
       pageCount++;
       log.info("Fetching Komplett category", { url: pageUrl, page: pageCount });
@@ -119,12 +122,13 @@ async function run(sourceConfig) {
           url: pageUrl,
           err: err.message,
         });
+        if (err instanceof ProxyFatalError) throw err;
         break;
       }
 
       const productUrls = takeRemaining(
         (nav?.items || []).map((item) => item.url).filter(Boolean),
-        allRecords.length,
+        currentTotal(),
         itemLimit,
       );
       log.info("Category page", { url: pageUrl, products: productUrls.length });
@@ -139,6 +143,7 @@ async function run(sourceConfig) {
             try {
               zyteProduct = await proxy.fetchProduct(pUrl, sourceConfig);
             } catch (err) {
+              if (err instanceof ProxyFatalError) throw err;
               log.debug("fetchProduct failed", { url: pUrl, err: err.message });
               return null;
             }
@@ -150,14 +155,26 @@ async function run(sourceConfig) {
         ),
       );
 
-      allRecords.push(...records.filter(Boolean));
+      const pageRecords = records.filter(Boolean);
+      if (pageRecords.length > 0) {
+        const flushed = ctx.flush ? await ctx.flush(pageRecords) : false;
+        if (flushed) {
+          totalFlushed += pageRecords.length;
+        } else {
+          allRecords.push(...pageRecords);
+        }
+      }
 
       // Pagination: nextPage from Zyte navigation result
       pageUrl = nav?.nextPage?.url || null;
     }
   }
 
-  log.info("Komplett run complete", { totalRecords: allRecords.length });
+  log.info("Komplett run complete", {
+    totalRecords: currentTotal(),
+    flushed: totalFlushed,
+    inMemory: allRecords.length,
+  });
   return allRecords;
 }
 

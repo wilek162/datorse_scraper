@@ -59,6 +59,14 @@ function makeProductHtml({ name, price, ean }) {
 }
 
 async function cleanupRecords(db, { sourceId, ean }) {
+  // Collect all canonical product IDs matched to this source run before deleting
+  // product_sources rows (the resolver sets matched_product_id for external_id records)
+  const matchedRows = await db.query(
+    "SELECT DISTINCT matched_product_id FROM dsc_product_sources WHERE source_id = ? AND matched_product_id IS NOT NULL",
+    [sourceId],
+  );
+  const resolverProductIds = matchedRows.map((row) => row.matched_product_id);
+
   await db.query("DELETE FROM dsc_product_sources WHERE source_id = ?", [
     sourceId,
   ]);
@@ -67,24 +75,42 @@ async function cleanupRecords(db, { sourceId, ean }) {
     sourceId,
   ]);
 
-  if (!ean) {
-    return;
+  // Clean up EAN-based product
+  if (ean) {
+    const productRows = await db.query(
+      "SELECT id FROM dsc_products WHERE ean = ?",
+      [ean],
+    );
+    const productIds = productRows.map((row) => row.id);
+
+    for (const productId of productIds) {
+      await db.query("DELETE FROM dsc_price_history WHERE product_id = ?", [
+        productId,
+      ]);
+      await db.query("DELETE FROM dsc_prices WHERE product_id = ?", [
+        productId,
+      ]);
+    }
+
+    await db.query("DELETE FROM dsc_products WHERE ean = ?", [ean]);
   }
 
-  const productRows = await db.query(
-    "SELECT id FROM dsc_products WHERE ean = ?",
-    [ean],
+  // Clean up resolver-created products (external_id path, no EAN)
+  const eanProductIds = ean
+    ? (
+        await db.query("SELECT id FROM dsc_products WHERE ean = ?", [ean])
+      ).map((r) => r.id)
+    : [];
+  const extraIds = resolverProductIds.filter(
+    (id) => !eanProductIds.includes(id),
   );
-  const productIds = productRows.map((row) => row.id);
-
-  for (const productId of productIds) {
+  for (const productId of extraIds) {
     await db.query("DELETE FROM dsc_price_history WHERE product_id = ?", [
       productId,
     ]);
     await db.query("DELETE FROM dsc_prices WHERE product_id = ?", [productId]);
+    await db.query("DELETE FROM dsc_products WHERE id = ?", [productId]);
   }
-
-  await db.query("DELETE FROM dsc_products WHERE ean = ?", [ean]);
 }
 
 (hasDbConfig ? describe : describe.skip)("Prisjakt e2e", () => {
@@ -161,13 +187,15 @@ async function cleanupRecords(db, { sourceId, ean }) {
         return [500, `unexpected target: ${targetUrl}`];
       });
 
+    // itemLimit must be high enough that Math.ceil(itemLimit / 5) >= 2 so
+    // Strategy 2 fetches both product links from the listing page.
     await runSource({
       id: sourceId,
       module: "scrapers/prisjakt.js",
       proxyTier: "standard",
       renderJs: true,
       pageLimit: 1,
-      itemLimit: 2,
+      itemLimit: 10,
       startUrls: [listingUrl],
       rateLimit: { reqPerMin: 1000 },
     });
@@ -183,7 +211,7 @@ async function cleanupRecords(db, { sourceId, ean }) {
     expect(logRow).toMatchObject({
       records_found: 2,
       records_valid: 1,
-      records_upserted: 1,
+      records_upserted: 2,
       proxy_credits_used: 3,
       pages_fetched: 3,
       status: "ok",
@@ -198,8 +226,8 @@ async function cleanupRecords(db, { sourceId, ean }) {
     );
     expect(auditRows).toHaveLength(2);
     expect(auditRows).toEqual([
-      { external_id: "1001", ean: validEan, match_status: "unmatched" },
-      { external_id: "1002", ean: null, match_status: "unmatched" },
+      { external_id: "1001", ean: validEan, match_status: "matched" },
+      { external_id: "1002", ean: null, match_status: "matched" },
     ]);
 
     const [product] = await db.query(

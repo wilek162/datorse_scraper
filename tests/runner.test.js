@@ -135,7 +135,7 @@ describe("runSource", () => {
         recordsValid: 0,
         status: "partial",
         errorMessage:
-          "No canonical EAN records; unresolved source records persisted",
+          "Records fetched but none resolved to canonical products",
       }),
     );
   });
@@ -175,6 +175,46 @@ describe("runSource", () => {
         recordsFound: 2,
         recordsValid: 2,
         recordsUpserted: 2,
+      }),
+    );
+  });
+
+  test("records flushed before run() throws are still saved to DB", async () => {
+    const modulePath = path.resolve(
+      __dirname,
+      "fixtures",
+      "runner-flush-then-throw.js",
+    );
+    jest.doMock(
+      modulePath,
+      () => ({
+        run: jest.fn(async (_cfg, ctx) => {
+          await ctx.flush([makeRecord({ ean: "1111111111111" })]);
+          throw new Error("Proxy died mid-run");
+        }),
+      }),
+      { virtual: true },
+    );
+
+    const { runSource } = require("../lib/runner");
+    await runSource({
+      id: "prisjakt",
+      module: "tests/fixtures/runner-flush-then-throw.js",
+    });
+
+    // Flushed batch was validated and upserted before the throw
+    expect(dbMock.saveValidationResults).toHaveBeenCalledTimes(1);
+    expect(dbMock.upsertProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ ean: "1111111111111" }),
+      "prisjakt",
+    );
+    // Run failed but partial data was committed
+    expect(dbMock.finishScrapeLog).toHaveBeenCalledWith(
+      99,
+      expect.objectContaining({
+        status: "failed",
+        errorMessage: "Proxy died mid-run",
+        recordsFound: 1,
       }),
     );
   });

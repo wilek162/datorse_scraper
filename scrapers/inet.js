@@ -18,6 +18,7 @@ const {
   isItemLimitReached,
   takeRemaining,
 } = require("../lib/source-controls");
+const { ProxyFatalError } = require("../lib/proxy");
 
 // inet.se is a Swedish computer retailer.
 // Site is a React SPA — requires renderJs: true via Scrape.do.
@@ -271,12 +272,14 @@ function extractNextPageUrl($, currentUrl) {
 /**
  * Entry point called by lib/runner.js
  */
-async function run(sourceConfig) {
+async function run(sourceConfig, ctx = {}) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(3);
   const pageLimit = getPageLimit(sourceConfig, 5);
   const itemLimit = getItemLimit(sourceConfig);
-  const allRecords = [];
+  const allRecords = []; // fallback only — populated when ctx.flush is absent or fails
+  let totalFlushed = 0; // records successfully committed to DB via ctx.flush
+  const currentTotal = () => allRecords.length + totalFlushed;
 
   const seedUrls = Array.isArray(sourceConfig.startUrls)
     ? sourceConfig.startUrls.filter(Boolean)
@@ -293,7 +296,7 @@ async function run(sourceConfig) {
     while (
       pageUrl &&
       pageCount < pageLimit &&
-      !isItemLimitReached(allRecords.length, itemLimit)
+      !isItemLimitReached(currentTotal(), itemLimit)
     ) {
       pageCount++;
       log.info("Scraping inet listing", { url: pageUrl, page: pageCount });
@@ -306,6 +309,7 @@ async function run(sourceConfig) {
           url: pageUrl,
           err: err.message,
         });
+        if (err instanceof ProxyFatalError) throw err;
         break;
       }
 
@@ -318,7 +322,7 @@ async function run(sourceConfig) {
         const raw = extractFromNextData(nextData);
         products = takeRemaining(
           raw.map(mapNextDataProduct).filter(Boolean),
-          allRecords.length,
+          currentTotal(),
           itemLimit,
         );
         if (products.length > 0)
@@ -366,7 +370,7 @@ async function run(sourceConfig) {
               })
               .filter(Boolean);
             if (mapped.length > 0) {
-              products = takeRemaining(mapped, allRecords.length, itemLimit);
+              products = takeRemaining(mapped, currentTotal(), itemLimit);
               break;
             }
           }
@@ -377,7 +381,7 @@ async function run(sourceConfig) {
       if (products.length === 0) {
         products = takeRemaining(
           parseListingViaSelectors($, log),
-          allRecords.length,
+          currentTotal(),
           itemLimit,
         );
       }
@@ -394,12 +398,24 @@ async function run(sourceConfig) {
         );
       }
 
-      allRecords.push(...products.map(({ _productUrl: _, ...rest }) => rest));
+      const pageRecords = products.map(({ _productUrl: _, ...rest }) => rest);
+      if (pageRecords.length > 0) {
+        const flushed = ctx.flush ? await ctx.flush(pageRecords) : false;
+        if (flushed) {
+          totalFlushed += pageRecords.length;
+        } else {
+          allRecords.push(...pageRecords);
+        }
+      }
       pageUrl = extractNextPageUrl($, pageUrl);
     }
   }
 
-  log.info("inet run complete", { totalRecords: allRecords.length });
+  log.info("inet run complete", {
+    totalRecords: currentTotal(),
+    flushed: totalFlushed,
+    inMemory: allRecords.length,
+  });
   return allRecords;
 }
 

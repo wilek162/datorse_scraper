@@ -133,11 +133,13 @@ describe("Zyte-backed scrapers", () => {
   });
 
   test("elgiganten run re-labels mapped products to elgiganten", async () => {
+    // Elgiganten uses proxy.fetch() for category listing pages (to parse HTML
+    // for product links), then proxy.fetchProduct() for AI extraction per item.
+    const listingHtml = `<html><body>
+      <a href="/product/1">Product 1</a>
+    </body></html>`;
     const proxyMock = {
-      fetchProductList: jest.fn().mockResolvedValue({
-        items: [{ url: "https://www.elgiganten.se/product/1" }],
-        nextPage: null,
-      }),
+      fetch: jest.fn().mockResolvedValue(listingHtml),
       fetchProduct: jest.fn().mockResolvedValue(makeZyteProduct()),
     };
     const log = makeLogger();

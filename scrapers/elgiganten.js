@@ -11,6 +11,7 @@ const {
   isItemLimitReached,
   takeRemaining,
 } = require("../lib/source-controls");
+const { ProxyFatalError } = require("../lib/proxy");
 
 // Elgiganten.se is Akamai-protected.
 // Strategy: Zyte browserHtml for category pages (productNavigation AI extraction
@@ -100,12 +101,17 @@ function zyteProductToRecord(zyteProduct, productUrl) {
 /**
  * Entry point called by lib/runner.js
  */
-async function run(sourceConfig) {
+async function run(sourceConfig, ctx = {}) {
   const log = logger.forSource(sourceConfig.id);
   const limit = pLimit(3); // concurrent product fetches — keep Zyte load low
   const pageLimit = getPageLimit(sourceConfig, 5);
   const itemLimit = getItemLimit(sourceConfig);
-  const allRecords = [];
+  const allRecords = []; // fallback only — populated when ctx.flush is absent or fails
+  let totalFlushed = 0; // records successfully committed to DB via ctx.flush
+
+  // currentTotal() replaces allRecords.length for item-limit checks so that
+  // already-flushed records count toward the run's limit.
+  const currentTotal = () => allRecords.length + totalFlushed;
 
   const seedUrls = Array.isArray(sourceConfig.startUrls)
     ? sourceConfig.startUrls.filter(Boolean)
@@ -122,7 +128,7 @@ async function run(sourceConfig) {
     while (
       pageUrl &&
       pageCount < pageLimit &&
-      !isItemLimitReached(allRecords.length, itemLimit)
+      !isItemLimitReached(currentTotal(), itemLimit)
     ) {
       pageCount++;
       log.info("Fetching Elgiganten category", {
@@ -139,12 +145,13 @@ async function run(sourceConfig) {
           url: pageUrl,
           err: err.message,
         });
+        if (err instanceof ProxyFatalError) throw err;
         break;
       }
 
       const $ = load(html);
       const allLinks = extractProductLinks($);
-      const productUrls = takeRemaining(allLinks, allRecords.length, itemLimit);
+      const productUrls = takeRemaining(allLinks, currentTotal(), itemLimit);
 
       log.info("Category page", {
         url: pageUrl,
@@ -165,6 +172,7 @@ async function run(sourceConfig) {
             try {
               zyteProduct = await proxy.fetchProduct(pUrl, sourceConfig);
             } catch (err) {
+              if (err instanceof ProxyFatalError) throw err;
               log.debug("fetchProduct failed", { url: pUrl, err: err.message });
               return null;
             }
@@ -176,12 +184,25 @@ async function run(sourceConfig) {
         ),
       );
 
-      allRecords.push(...records.filter(Boolean));
+      const pageRecords = records.filter(Boolean);
+      if (pageRecords.length > 0) {
+        const flushed = ctx.flush ? await ctx.flush(pageRecords) : false;
+        if (flushed) {
+          totalFlushed += pageRecords.length;
+        } else {
+          allRecords.push(...pageRecords);
+        }
+      }
+
       pageUrl = extractNextPageUrl($, pageUrl);
     }
   }
 
-  log.info("Elgiganten run complete", { totalRecords: allRecords.length });
+  log.info("Elgiganten run complete", {
+    totalRecords: currentTotal(),
+    flushed: totalFlushed,
+    inMemory: allRecords.length,
+  });
   return allRecords;
 }
 
