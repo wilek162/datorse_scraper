@@ -23,6 +23,65 @@ function validateSources(parsed) {
   return true;
 }
 
+// ─── validateSourceEntry ───────────────────────────────────────────────────
+// Mirrors the per-entry validation function in admin/routes/config.js.
+// Keep in sync if the route validation changes.
+
+function validateSourceEntry(item) {
+  if (!item.id || typeof item.id !== "string") {
+    return `All source entries must have a string "id" field. Found: ${JSON.stringify(item).slice(0, 80)}`;
+  }
+  if (typeof item.enabled !== "boolean") {
+    return `Source "${item.id}": "enabled" must be true or false, got: ${JSON.stringify(item.enabled)}`;
+  }
+  if (!item.schedule || typeof item.schedule !== "string") {
+    return `Source "${item.id}": "schedule" must be a non-empty string`;
+  }
+  if (!item.module || typeof item.module !== "string") {
+    return `Source "${item.id}": "module" must be a non-empty string`;
+  }
+  return null;
+}
+
+describe("validateSourceEntry", () => {
+  const base = { id: "prisjakt", enabled: true, schedule: "0 */4 * * *", module: "scrapers/prisjakt.js" };
+
+  test("returns null for a fully valid entry", () => {
+    expect(validateSourceEntry(base)).toBeNull();
+  });
+
+  test("rejects missing id", () => {
+    const { id: _id, ...noId } = base;
+    expect(validateSourceEntry(noId)).toMatch(/string "id" field/);
+  });
+
+  test("rejects enabled as string", () => {
+    expect(validateSourceEntry({ ...base, enabled: "yes" })).toMatch(/"enabled" must be true or false/);
+  });
+
+  test("rejects enabled as number", () => {
+    expect(validateSourceEntry({ ...base, enabled: 1 })).toMatch(/"enabled" must be true or false/);
+  });
+
+  test("rejects missing schedule", () => {
+    const { schedule: _s, ...noSched } = base;
+    expect(validateSourceEntry(noSched)).toMatch(/"schedule" must be a non-empty string/);
+  });
+
+  test("rejects empty schedule", () => {
+    expect(validateSourceEntry({ ...base, schedule: "" })).toMatch(/"schedule" must be a non-empty string/);
+  });
+
+  test("rejects missing module", () => {
+    const { module: _m, ...noMod } = base;
+    expect(validateSourceEntry(noMod)).toMatch(/"module" must be a non-empty string/);
+  });
+
+  test("rejects empty module", () => {
+    expect(validateSourceEntry({ ...base, module: "" })).toMatch(/"module" must be a non-empty string/);
+  });
+});
+
 describe("Admin Config Validation", () => {
   test("stripComments removes single-line comments", () => {
     const input = `{
