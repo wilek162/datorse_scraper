@@ -12,13 +12,19 @@
       <span class="stat-value">
         <%= counts.total_prices.toLocaleString() %>
       </span>
-      <span class="stat-label">Price rows</span>
+      <span class="stat-label">Active Offers</span>
     </div>
     <div class="stat-card">
       <span class="stat-value">
         <%= counts.runs_24h %>
       </span>
       <span class="stat-label">Runs (24 h)</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value" style="<%= counts.fails_24h > 0 ? 'color:var(--error)' : '' %>">
+        <%= counts.fails_24h %>
+      </span>
+      <span class="stat-label">Failed (24 h)</span>
     </div>
     <div class="stat-card">
       <span class="stat-value">
