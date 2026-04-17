@@ -17,8 +17,8 @@
     <span class="stat-label">With Price</span>
   </div>
   <div class="stat-card">
-    <span class="stat-value"><%= stats.avgOffersPerProduct.toFixed(1) %></span>
-    <span class="stat-label">Avg Offers/Product</span>
+    <span class="stat-value"><%= stats.avgOffersPerProduct != null ? Number(stats.avgOffersPerProduct).toFixed(1) : '–' %></span>
+    <span class="stat-label">Avg In-Stock Offers/Product</span>
   </div>
   <div class="stat-card">
     <span class="stat-value"><%= stats.unmatchedSources.toLocaleString() %></span>
@@ -147,7 +147,7 @@
       <td><span class="badge badge-partial"><%= m.ambiguous %></span></td>
       <td><span class="badge badge-disabled"><%= m.skipped %></span></td>
       <td>
-        <% const total = m.matched + m.unmatched + m.ambiguous + m.skipped; %>
+        <% const total = m.matched + m.unmatched + m.ambiguous; %>
         <% const rate = total > 0 ? Math.round(m.matched / total * 100) : 0; %>
         <span style="font-weight:700;color:<%= rate >= 80 ? 'var(--ok)' : rate >= 50 ? 'var(--partial)' : 'var(--error)' %>">
           <%= rate %>%
