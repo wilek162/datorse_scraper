@@ -108,7 +108,8 @@ function validateJson() {
   const ta = document.getElementById('sources-json-editor');
   const result = document.getElementById('validate-result');
   try {
-    JSON.parse(ta.value);
+    const stripped = ta.value.replace(/^\s*\/\/.*$/gm, '');
+    JSON.parse(stripped);
     result.innerHTML = '<span style="color:var(--ok)">✓ Valid JSON</span>';
   } catch (e) {
     result.innerHTML = '<span style="color:var(--error)">✗ ' + e.message + '</span>';
@@ -119,7 +120,8 @@ function validateJson() {
 document.getElementById('config-form').addEventListener('submit', function(e) {
   const ta = document.getElementById('sources-json-editor');
   try {
-    JSON.parse(ta.value);
+    const stripped = ta.value.replace(/^\s*\/\/.*$/gm, '');
+    JSON.parse(stripped);
   } catch (err) {
     e.preventDefault();
     document.getElementById('validate-result').innerHTML =
