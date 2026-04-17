@@ -294,12 +294,22 @@ describe("Budget cap enforcement", () => {
     await jest.isolateModulesAsync(async () => {
       process.env.PROXY_BUDGET_CAP_SCRAPE_DO = "0";
       const proxy = require("../lib/proxy");
+      const { ProxyFatalError: PFE } = require("../lib/proxy");
       await expect(
         proxy.fetch("https://example.com", {
           proxyTier: "standard",
           id: "test",
         }),
-      ).rejects.toThrow(/budget cap reached/i);
+      ).rejects.toMatchObject({
+        name: "ProxyFatalError",
+        message: expect.stringMatching(/budget cap reached/i),
+      });
+      await expect(
+        proxy.fetch("https://example.com", {
+          proxyTier: "standard",
+          id: "test",
+        }),
+      ).rejects.toThrow(PFE);
     });
     process.env.PROXY_BUDGET_CAP_SCRAPE_DO = "100";
   });
@@ -308,9 +318,16 @@ describe("Budget cap enforcement", () => {
     await jest.isolateModulesAsync(async () => {
       process.env.PROXY_BUDGET_CAP_ZYTE = "0";
       const proxy = require("../lib/proxy");
+      const { ProxyFatalError: PFE } = require("../lib/proxy");
       await expect(
         proxy.fetch("https://example.com", { proxyTier: "asp", id: "test" }),
-      ).rejects.toThrow(/budget cap reached/i);
+      ).rejects.toMatchObject({
+        name: "ProxyFatalError",
+        message: expect.stringMatching(/budget cap reached/i),
+      });
+      await expect(
+        proxy.fetch("https://example.com", { proxyTier: "asp", id: "test" }),
+      ).rejects.toThrow(PFE);
     });
     process.env.PROXY_BUDGET_CAP_ZYTE = "50";
   });

@@ -45,7 +45,7 @@
       ▶ Run now
     </button>
 
-    <!-- Run with options — inline collapsible form -->
+    <!-- Run with options — inline collapsible form, opens upward on last rows -->
     <details class="run-options" id="run-options-<%= row.id %>">
       <summary class="btn btn-sm" title="Run with custom limits">⚙ Options</summary>
       <form class="run-options-form" hx-post="/sources/<%= row.id %>/run" hx-target="#run-result-<%= row.id %>"

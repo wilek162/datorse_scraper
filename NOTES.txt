@@ -1,2 +1,22 @@
 run: "pm2 restart datorsc-admin
 pm2 restart datorsc-scraper" to restart the datorsc-admin and datorsc-scraper processes using PM2 when you have made changes to the code or want to refresh the application. This command will ensure that the latest changes are applied and the application is running smoothly.
+
+CLAUDE SKILLS:
+  Skills
+  16 skills · Esc to close
+
+  ❯ 🔒 on         superpowers:brainstorming · plugin · ~56 tok · locked by plugin
+    🔒 on         superpowers:dispatching-parallel-agents · plugin · ~37 tok · locked by plugin
+    🔒 on         claude-session-driver:driving-claude-code-sessions · plugin · ~59 tok · locked by plugin
+    🔒 on         superpowers:executing-plans · plugin · ~33 tok · locked by plugin
+    🔒 on         superpowers:finishing-a-development-branch · plugin · ~61 tok · locked by plugin
+    🔒 on         superpowers:receiving-code-review · plugin · ~67 tok · locked by plugin
+    🔒 on         superpowers:requesting-code-review · plugin · ~36 tok · locked by plugin
+    🔒 on         superpowers:subagent-driven-development · plugin · ~31 tok · locked by plugin
+    🔒 on         superpowers:systematic-debugging · plugin · ~31 tok · locked by plugin
+    🔒 on         superpowers:test-driven-development · plugin · ~29 tok · locked by plugin
+    🔒 on         superpowers:using-git-worktrees · plugin · ~59 tok · locked by plugin
+    🔒 on         superpowers:using-superpowers · plugin · ~47 tok · locked by plugin
+    🔒 on         superpowers:verification-before-completion · plugin · ~67 tok · locked by plugin
+    🔒 on         superpowers:writing-plans · plugin · ~28 tok · locked by plugin
+    🔒 on         superpowers:writing-skills · plugin · ~31 tok · locked by plugin

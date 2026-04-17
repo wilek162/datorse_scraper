@@ -41,28 +41,42 @@
     <table class="table">
       <thead>
         <tr>
-          <% for (const col of Object.keys(sourceHealth[0])) { %>
-            <th>
-              <%= col %>
-            </th>
-            <% } %>
+          <th>Source</th>
+          <th>Last Run</th>
+          <th>Last Finished</th>
+          <th>Status</th>
+          <th>Records Found</th>
+          <th>Records Upserted</th>
+          <th>Total Runs</th>
         </tr>
       </thead>
       <tbody>
         <% for (const row of sourceHealth) { %>
-          <tr>
-            <% for (const val of Object.values(row)) { %>
-              <td>
-                <%= val ?? '–' %>
-              </td>
-              <% } %>
-          </tr>
-          <% } %>
+        <tr>
+          <td><a href="/logs?source=<%= row.source_id %>"><strong><%= row.source_id %></strong></a></td>
+          <td title="<%= row.last_run_at ? new Date(row.last_run_at).toLocaleString('sv-SE') : '' %>">
+            <%= row.last_run_at ? timeAgo(row.last_run_at) : '–' %>
+          </td>
+          <td title="<%= row.last_finished_at ? new Date(row.last_finished_at).toLocaleString('sv-SE') : '' %>">
+            <%= row.last_finished_at ? timeAgo(row.last_finished_at) : '–' %>
+          </td>
+          <td>
+            <% if (row.last_run_status) { %>
+              <span class="badge badge-<%= row.last_run_status %>"><%= row.last_run_status %></span>
+            <% } else { %>
+              <span class="badge badge-disabled">–</span>
+            <% } %>
+          </td>
+          <td><%= row.total_found != null ? Number(row.total_found).toLocaleString() : '–' %></td>
+          <td><%= row.total_upserted != null ? Number(row.total_upserted).toLocaleString() : '–' %></td>
+          <td><%= row.total_runs %></td>
+        </tr>
+        <% } %>
       </tbody>
     </table>
-    <% } else { %>
-      <p class="hint"><code>dsc_view_source_health</code> not available in this DB schema version.</p>
-      <% } %>
+  <% } else { %>
+    <p class="hint"><code>dsc_view_source_health</code> not available in this DB schema version.</p>
+  <% } %>
 
         <!-- Recent errors / partial runs -->
         <h2>Recent Errors (7 days)</h2>
@@ -99,31 +113,37 @@
             <p class="hint">No errors or partial runs in the last 7 days. ✓</p>
             <% } %>
 
-              <!-- Best price sample -->
-              <% if (bestPrices.length) { %>
-                <h2>Best Price Sample (top 10)</h2>
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <% for (const col of Object.keys(bestPrices[0])) { %>
-                        <th>
-                          <%= col %>
-                        </th>
-                        <% } %>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <% for (const row of bestPrices) { %>
-                      <tr>
-                        <% for (const val of Object.values(row)) { %>
-                          <td>
-                            <%= val ?? '–' %>
-                          </td>
-                          <% } %>
-                      </tr>
-                      <% } %>
-                  </tbody>
-                </table>
-                <% } %>
+  <!-- Best price sample -->
+  <% if (bestPrices.length) { %>
+    <h2>Best Price Sample (top 10)</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>EAN</th>
+          <th>Name</th>
+          <th>Brand</th>
+          <th>Best Price (SEK)</th>
+          <th>Offers</th>
+          <th>Last Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% for (const row of bestPrices) { %>
+        <tr>
+          <td><a href="/data/product/<%= row.product_id %>">#<%= row.product_id %></a></td>
+          <td><code style="font-size:.78rem"><%= row.ean ?? '–' %></code></td>
+          <td><a href="/data/product/<%= row.product_id %>"><%= row.name %></a></td>
+          <td><%= row.brand ?? '–' %></td>
+          <td><strong><%= Number(row.best_price_sek).toLocaleString('sv-SE') %> kr</strong></td>
+          <td><span class="badge badge-ok"><%= row.offer_count %></span></td>
+          <td title="<%= row.last_updated ? new Date(row.last_updated).toLocaleString('sv-SE') : '' %>">
+            <%= row.last_updated ? timeAgo(row.last_updated) : '–' %>
+          </td>
+        </tr>
+        <% } %>
+      </tbody>
+    </table>
+  <% } %>
 
                   <%- include('partials/footer') %>

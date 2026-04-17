@@ -39,7 +39,7 @@ router.get("/", async (req, res, next) => {
     const recentErrors = await db.query(
       `SELECT source_id, status, error_message, started_at
        FROM dsc_scrape_log
-       WHERE status IN ('error', 'partial')
+       WHERE status IN ('failed', 'partial')
          AND started_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
        ORDER BY started_at DESC
        LIMIT 30`,

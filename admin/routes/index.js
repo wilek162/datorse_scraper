@@ -46,10 +46,13 @@ router.get("/", async (req, res, next) => {
     // DB row counts from published views
     const [counts] = await db.query(
       `SELECT
-          (SELECT COUNT(*) FROM dsc_products)          AS total_products,
-          (SELECT COUNT(*) FROM dsc_prices)            AS total_prices,
+          (SELECT COUNT(*) FROM dsc_products)                        AS total_products,
+          (SELECT COUNT(*) FROM dsc_prices WHERE in_stock = 1)       AS total_prices,
           (SELECT COUNT(*) FROM dsc_scrape_log
-           WHERE started_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) AS runs_24h`,
+           WHERE started_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR))    AS runs_24h,
+          (SELECT COUNT(*) FROM dsc_scrape_log
+           WHERE started_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+             AND status = 'failed')                                   AS fails_24h`,
     );
 
     res.render("dashboard", {

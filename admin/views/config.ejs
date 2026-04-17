@@ -1,0 +1,144 @@
+<%- include('partials/header', { title }) %>
+
+<p class="hint">
+  Live configuration for <code>config/sources.json</code>. Changes are applied immediately — the scheduler reads this file on each tick. Always validate JSON before saving.
+</p>
+
+<% if (saveMessage) { %>
+  <div class="alert-box alert-box--<%= saveSuccess ? 'ok' : 'error' %>" style="margin-bottom:1rem">
+    <%= saveMessage %>
+  </div>
+<% } %>
+
+<!-- Sources overview table -->
+<h2>Sources Overview</h2>
+<table class="table" style="margin-bottom:1.5rem">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Type</th>
+      <th>Module</th>
+      <th>Enabled</th>
+      <th>Schedule</th>
+      <th>Proxy Tier</th>
+      <th>Render JS</th>
+      <th>Page Limit</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% for (const s of sources) { %>
+    <tr>
+      <td><strong><%= s.id %></strong></td>
+      <td><span class="badge badge-type"><%= s.type %></span></td>
+      <td><code style="font-size:.75rem"><%= s.module %></code></td>
+      <td>
+        <span class="badge <%= s.enabled ? 'badge-ok' : 'badge-disabled' %>">
+          <%= s.enabled ? 'yes' : 'no' %>
+        </span>
+      </td>
+      <td><code><%= s.schedule %></code></td>
+      <td><%= s.proxyTier ?? '–' %></td>
+      <td><%= s.renderJs ? '✓' : '–' %></td>
+      <td><%= s.pageLimit ?? 'default' %></td>
+    </tr>
+    <% } %>
+  </tbody>
+</table>
+
+<!-- JSON editor -->
+<h2>Raw Configuration (JSON)</h2>
+<p class="hint" style="margin-bottom:.75rem">
+  Edit the full sources.json below. The scheduler will use the updated config on its next run.
+  <strong>Warning:</strong> invalid JSON will not be saved.
+</p>
+
+<form method="POST" action="/config/sources" id="config-form">
+  <div style="position:relative; margin-bottom:.75rem">
+    <textarea
+      name="sourcesJson"
+      id="sources-json-editor"
+      spellcheck="false"
+      autocomplete="off"
+      rows="35"
+      style="
+        width:100%;
+        font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+        font-size:.82rem;
+        line-height:1.5;
+        padding:.85rem 1rem;
+        border:1px solid var(--border);
+        border-radius:var(--radius-lg);
+        background:#0f1117;
+        color:#e2e8f0;
+        resize:vertical;
+        box-shadow:var(--shadow-sm);
+        tab-size:2;
+      "
+    ><%= rawJson %></textarea>
+  </div>
+
+  <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap">
+    <button type="button" class="btn btn-sm" id="validate-btn" onclick="validateJson()">
+      ✓ Validate JSON
+    </button>
+    <button type="submit" class="btn btn-primary" id="save-btn">
+      💾 Save Configuration
+    </button>
+    <a class="btn btn-sm" href="/sources">← Back to Sources</a>
+    <span id="validate-result" style="font-size:.82rem"></span>
+  </div>
+</form>
+
+<!-- Cron reference -->
+<h2 style="margin-top:2rem">Cron Schedule Reference</h2>
+<table class="table" style="max-width:600px">
+  <thead><tr><th>Expression</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>0 */4 * * *</code></td><td>Every 4 hours</td></tr>
+    <tr><td><code>0 */6 * * *</code></td><td>Every 6 hours</td></tr>
+    <tr><td><code>30 2 * * *</code></td><td>Daily at 02:30</td></tr>
+    <tr><td><code>0 4 * * *</code></td><td>Daily at 04:00</td></tr>
+    <tr><td><code>10 */4 * * *</code></td><td>Every 4 hours at :10</td></tr>
+    <tr><td><code>*/30 * * * *</code></td><td>Every 30 minutes</td></tr>
+  </tbody>
+</table>
+
+<script>
+function validateJson() {
+  const ta = document.getElementById('sources-json-editor');
+  const result = document.getElementById('validate-result');
+  try {
+    const stripped = ta.value.replace(/^\s*\/\/.*$/gm, '');
+    JSON.parse(stripped);
+    result.innerHTML = '<span style="color:var(--ok)">✓ Valid JSON</span>';
+  } catch (e) {
+    result.innerHTML = '<span style="color:var(--error)">✗ ' + e.message + '</span>';
+  }
+}
+
+// Prevent accidental save of invalid JSON
+document.getElementById('config-form').addEventListener('submit', function(e) {
+  const ta = document.getElementById('sources-json-editor');
+  try {
+    const stripped = ta.value.replace(/^\s*\/\/.*$/gm, '');
+    JSON.parse(stripped);
+  } catch (err) {
+    e.preventDefault();
+    document.getElementById('validate-result').innerHTML =
+      '<span style="color:var(--error)">✗ Cannot save — ' + err.message + '</span>';
+  }
+});
+
+// Tab key support in textarea
+document.getElementById('sources-json-editor').addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 2;
+  }
+});
+</script>
+
+<%- include('partials/footer') %>

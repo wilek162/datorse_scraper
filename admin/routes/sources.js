@@ -16,6 +16,7 @@ const path = require("path");
 const router = require("express").Router();
 const db = require("../../lib/db");
 const { loadSources } = require("../lib/sources");
+const { applySourceOverrides } = require("../../lib/source-controls");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -94,21 +95,20 @@ router.post("/:id/run", async (req, res, next) => {
   try {
     const source = findSource(req.params.id);
 
-    // Parse optional run overrides from body (sent by run-options form)
-    const pageLimit = req.body.pageLimit
-      ? Math.max(1, parseInt(req.body.pageLimit, 10))
-      : null;
-    const itemLimit = req.body.itemLimit
-      ? Math.max(1, parseInt(req.body.itemLimit, 10))
-      : null;
-    const dryRun = req.body.dryRun === "true" || req.body.dryRun === "1";
+    // Build raw overrides from body — only include fields that were actually provided.
+    // applySourceOverrides uses parsePositiveInt which throws on invalid input;
+    // that error flows to next(err) and renders as an HTMX inline error span.
+    const rawOverrides = {};
+    if (req.body.pageLimit) rawOverrides.pageLimit = req.body.pageLimit;
+    if (req.body.itemLimit) rawOverrides.itemLimit = req.body.itemLimit;
+    if (req.body.dryRun === "true" || req.body.dryRun === "1") rawOverrides.dryRun = true;
+
+    const effective = applySourceOverrides(source, rawOverrides);
 
     const extraArgs = [];
-    if (pageLimit && !Number.isNaN(pageLimit))
-      extraArgs.push("--pageLimit", String(pageLimit));
-    if (itemLimit && !Number.isNaN(itemLimit))
-      extraArgs.push("--itemLimit", String(itemLimit));
-    if (dryRun) extraArgs.push("--dryRun");
+    if (rawOverrides.pageLimit != null) extraArgs.push("--pageLimit", String(effective.pageLimit));
+    if (rawOverrides.itemLimit != null) extraArgs.push("--itemLimit", String(effective.itemLimit));
+    if (effective.dryRun) extraArgs.push("--dryRun");
 
     const runScript = path.resolve(__dirname, "../../lib/run-source.js");
     // Fire and forget — the run writes its own scrape_log entry
@@ -128,9 +128,9 @@ router.post("/:id/run", async (req, res, next) => {
 
     // Build a label that reflects which overrides were applied
     const optParts = [];
-    if (pageLimit) optParts.push(`${pageLimit}p`);
-    if (itemLimit) optParts.push(`${itemLimit}i`);
-    if (dryRun) optParts.push("dry");
+    if (rawOverrides.pageLimit != null) optParts.push(`${effective.pageLimit}p`);
+    if (rawOverrides.itemLimit != null) optParts.push(`${effective.itemLimit}i`);
+    if (effective.dryRun) optParts.push("dry");
     const opts = optParts.length ? ` (${optParts.join(", ")})` : "";
 
     if (req.headers["hx-request"]) {
