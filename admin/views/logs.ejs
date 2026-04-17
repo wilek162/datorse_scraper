@@ -17,7 +17,7 @@
       Status
       <select name="status">
         <option value="">All statuses</option>
-        <% for (const st of ['ok', 'partial' , 'error' , 'running' ]) { %>
+        <% for (const st of ['ok', 'partial', 'failed']) { %>
           <option value="<%= st %>" <%=filters.status===st ? 'selected' : '' %>><%= st %>
           </option>
           <% } %>
